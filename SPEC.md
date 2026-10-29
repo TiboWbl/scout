@@ -132,6 +132,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 - Entretien de la base : archivage des offres retirées des pages carrière à chaque lecture, archivage des offres des moteurs non revues depuis 21 jours, purge des descriptions archivées depuis 60 jours ; taille de la base affichée dans l'admin face aux 500 Mo du plan gratuit.
 - **Monitoring de santé par source** : offres par run, erreurs, alerte si une source tombe à zéro ou chute anormalement. Si une étape du passage planifié échoue (collecte, tri, marché, email, démo), un email part vers le compte Gmail qui fait tourner Scout, avec le lien vers le détail (`npm run alert`, seulement en cas d'échec).
 
+- **V.I.E.** (volontariat international en entreprise) : un contrat à part, à cocher dans « Ma recherche ». Il est reconnu dans les offres (« VIE », « V.I.E » en capitales, « volontariat international en entreprise » ; jamais « auxiliaire de vie »). Quand une personne en cherche un, la collecte garde les V.I.E. de tous les pays (publiés sur les pages carrière des grands groupes et sur les moteurs), lance une recherche « VIE + son métier » sur les moteurs, et un V.I.E. à l'étranger n'est pas hors de sa zone. Le site de Business France (Mon Volontariat International) n'est pas lu : son interface est réservée (authentification) et il ne publie pas de plan du site.
+
 ## Normalisation et déduplication
 
 - Schéma commun : titre, entreprise, lieu (ville, pays), télétravail, contrat, XP demandée, salaire, langue, description complète, URL(s), source(s), date de publication, date de première détection.

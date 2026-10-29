@@ -16,7 +16,7 @@ Réponds uniquement avec un objet JSON de cette forme :
   "otherSectors": { "open": true si la personne accepte d'autres secteurs que ses préférés, "condition": condition éventuelle en quelques mots ou null },
   "zone": { "places": [{ "label": "nom du lieu", "kind": "city" | "region" | "country", "country": "code ISO à 2 lettres" }], "remoteOk": true si le télétravail complet depuis son pays lui convient },
   "outOfZone": "never" | "exceptional" | "yes",
-  "contracts": contrats souhaités parmi ["cdi","cdd","stage","alternance","freelance"],
+  "contracts": contrats souhaités parmi ["cdi","cdd","stage","alternance","freelance","vie"] (« vie » pour un V.I.E., volontariat international en entreprise),
   "experienceYears": années d'expérience professionnelle cumulée telles que la personne les décrit (stages compris), nombre ou null. Si la description donne ce chiffre, il prime sur le CV,
   "languages": [langues avec niveau],
   "availability": disponibilité en quelques mots ou null,
@@ -132,7 +132,7 @@ function uniq(values: string[], exclude: string[] = []) {
   });
 }
 
-const CONTRACT_WORDS: Record<Contract, string> = { cdi: "cdi", cdd: "cdd", stage: "stages?", alternance: "alternances?", freelance: "freelances?" };
+const CONTRACT_WORDS: Record<Contract, string> = { cdi: "cdi", cdd: "cdd", stage: "stages?", alternance: "alternances?", freelance: "freelances?", vie: "v\\.?i\\.?e\\.?" };
 
 // Deterministic safety net over the model's answer: negations, duplicates, contradictions.
 export function reconcile(c: Criteria, text: string): Criteria {

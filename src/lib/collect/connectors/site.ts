@@ -122,7 +122,7 @@ export async function site(board: BoardRef, keep?: Keep, wanted?: Wanted): Promi
     for (const p of pages) {
       // The structured JobPosting when the page has one, else the page itself read as a posting.
       const offer = p.html ? (fromJsonLd(p.html, p.url) ?? fromHtmlPage(p.html, p.url)) : null;
-      if (!offer || (keep && !keep(offer.places, offer.remote))) continue;
+      if (!offer || (keep && !keep(offer.places, offer.remote, offer.title))) continue;
       out.push({ ...offer, sourceKey: `site:${board.token}`, company: { name: board.name, domain: board.domain ?? undefined, ats: "site", atsToken: board.token } });
     }
   }

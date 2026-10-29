@@ -49,7 +49,9 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
 
   let outOfZone = false;
   const zone = zoneVerdict(offer, criteria.zone);
-  if (zone === "out") {
+  // A V.I.E. is abroad by definition: for someone looking for one, its country is not out of zone.
+  const vieSought = offer.contract === "vie" && criteria.contracts.includes("vie");
+  if (zone === "out" && !vieSought) {
     if (criteria.outOfZone === "never") return { pass: false, reason: "Hors de ta zone de recherche." };
     // "Exceptionally elsewhere" means another region, never another country or overseas territory: an
     // offer in La Réunion or in the United States is not an exceptional offer near Paris.

@@ -26,7 +26,15 @@ const DESCRIPTION_PATTERNS: [RegExp, Contract][] = [
 ];
 
 // `explicit` is a structured field from the source (e.g. Lever "commitment"); it wins over prose.
+// A V.I.E. (volontariat international en entreprise), as postings write it: "VIE" or "V.I.E" in capitals,
+// never "Auxiliaire de vie" nor "AUXILIAIRE DE VIE SOCIALE".
+export function isVie(title: string, description = ""): boolean {
+  if (/volontariat international (en entreprise|vie)\b/i.test(`${title} ${description}`)) return true;
+  return /(^|[^A-Za-z])(V\.I\.E\.?|VIE)(?![A-Za-z])/.test(title) && !/\b(DE|D'|DU|LA|EN) VIE\b|\bVIE (SOCIALE|SCOLAIRE|QUOTIDIENNE|ETUDIANTE|ÉTUDIANTE|SERIE|SÉRIE)\b/i.test(title);
+}
+
 export function detectContract(title: string, explicit?: string | null, description = ""): Contract | "unknown" {
+  if (isVie(title, description)) return "vie";
   // A title saying "Intern" or "Alternance" beats a generic "Full-time" ATS field.
   const t = norm(title);
   for (const [re, contract] of CONTRACT_PATTERNS) if (contract !== "cdi" && re.test(t)) return contract;

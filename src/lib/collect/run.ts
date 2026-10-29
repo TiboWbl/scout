@@ -9,6 +9,7 @@ import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
 import { extractAccent } from "./colors";
 import { mergeEngineCopies, verifyEngineOffers } from "./complete";
+import { isVie } from "@/lib/domain/signals";
 import { fillCovers, fillOfferImages } from "./cover";
 import { enrichCompanies, guessDomains } from "./enrich";
 import { companyKey, offerKey } from "./normalize";
@@ -31,7 +32,8 @@ type Log = (line: string) => void;
 type Options = { log?: Log; budgetMs?: number };
 
 // wanted: whether a title is close to a role or bridge someone looks for (big boards fetch details only for those).
-type Scope = { queries: SearchQuery[]; countries: Set<string>; wanted: Wanted };
+// `vie`: someone looks for a V.I.E., kept whatever its country.
+type Scope = { queries: SearchQuery[]; countries: Set<string>; wanted: Wanted; vie?: boolean };
 
 export async function runCollection(db: SupabaseClient, { log = () => {}, budgetMs = Infinity }: Options = {}): Promise<SourceReport[]> {
   const startedAt = Date.now();
@@ -133,6 +135,9 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
   }
   const queries: SearchQuery[] = [];
   const seen = new Set<string>();
+  // A V.I.E. for each person looking for one, on their first role: posted in France, for abroad.
+  const vie = sought.some((c) => c.contracts.includes("vie"));
+  for (const c of sought.filter((x) => x.contracts.includes("vie")).slice(0, 2)) if (c.targetRoles[0]) queries.push({ what: `VIE ${c.targetRoles[0]}`, where: null, country: "FR" });
   for (let round = 0; queries.length < MAX_GENERATED_QUERIES && perPerson.some((list) => list.length > round); round++) {
     for (const list of perPerson) {
       const q = list[round];
@@ -147,14 +152,14 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
   const favNames = [...new Set((favs ?? []).map((f) => f.company as unknown as { name: string; ats: string | null } | null).filter((c) => c && !c.ats).map((c) => c!.name))];
   queries.push(...favNames.slice(0, MAX_FAVORITE_QUERIES).map((company) => ({ what: "", where: null, country: [...countries][0] ?? "FR", company })));
   const wanted: Wanted = (title) => sought.length === 0 || sought.some((c) => titleRelevance(title, c) >= 3);
-  return { queries, countries, wanted };
+  return { queries, countries, wanted, vie };
 }
 
 export function keepInScope(scope: Scope): Keep {
   // No profile yet: keep everything rather than nothing.
   if (scope.countries.size === 0) return () => true;
   // An explicit country is required: "Remote" alone is usually a US-only posting.
-  return (places) => places.some((p) => p.country !== undefined && scope.countries.has(p.country));
+  return (places, _remote, title) => (scope.vie === true && title !== undefined && isVie(title)) || places.some((p) => p.country !== undefined && scope.countries.has(p.country));
 }
 
 export async function collectBoard(db: SupabaseClient, board: Board & { id: string }, keep: Keep, wanted?: Wanted): Promise<SourceReport> {
@@ -165,7 +170,7 @@ export async function collectBoard(db: SupabaseClient, board: Board & { id: stri
     const all = await fetchBoard(board, keep, wanted);
     // A board's offers belong to the company that owns the board, whatever name its feed shows
     // (Yousign's Teamtailor feed is titled "Youtrust"): the favourite and its offers stay together.
-    const offers = all.filter((o) => keep(o.places, o.remote)).map((o) => ({ ...o, company: { ...o.company, name: board.name } }));
+    const offers = all.filter((o) => keep(o.places, o.remote, o.title)).map((o) => ({ ...o, company: { ...o.company, name: board.name } }));
     report.seen = offers.length;
     report.created = await upsertOffers(db, offers);
     // The board lists every open position: what is no longer there has been filled or withdrawn.
@@ -204,7 +209,7 @@ async function collectSource(db: SupabaseClient, source: string, fetchOffers: ()
   const startedAt = new Date().toISOString();
   const report: SourceReport = { source, seen: 0, created: 0, archived: 0 };
   try {
-    const offers = (await fetchOffers()).filter((o) => keep(o.places, o.remote));
+    const offers = (await fetchOffers()).filter((o) => keep(o.places, o.remote, o.title));
     report.seen = offers.length;
     report.created = await upsertOffers(db, offers);
     if (archiveStale && offers.length > 0) {

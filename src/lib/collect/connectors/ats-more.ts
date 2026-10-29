@@ -8,7 +8,8 @@ import { htmlToText } from "../normalize";
 
 export type BoardRef = { name: string; domain: string | null; token: string };
 // Lets a connector skip detail requests for offers that would be dropped anyway (outside every zone).
-export type Keep = (places: Place[], remote: NormalizedOffer["remote"]) => boolean;
+// `title`: a V.I.E. is kept whatever its country when someone looks for one.
+export type Keep = (places: Place[], remote: NormalizedOffer["remote"], title?: string) => boolean;
 // Whether someone's search could use this title: big boards fetch details only for those.
 export type Wanted = (title: string) => boolean;
 
@@ -56,7 +57,7 @@ export async function smartrecruiters(board: BoardRef, keep?: Keep): Promise<Nor
     const raw = p.location?.fullLocation ?? [p.location?.city, p.location?.country?.toUpperCase()].filter(Boolean).join(", ");
     const loc = parseLocation(raw, p.name);
     loc.remote = remoteFrom(p.location?.remote, p.location?.hybrid, loc.remote);
-    if (keep && !keep(loc.places, loc.remote)) continue;
+    if (keep && !keep(loc.places, loc.remote, p.name)) continue;
     if (out.length >= SR_DETAILS_PER_BOARD) break;
     const detail = (await (await get(`https://api.smartrecruiters.com/v1/companies/${board.token}/postings/${p.id}`)).json()) as {
       postingUrl?: string;
@@ -288,7 +289,7 @@ export async function digitalrecruiters(board: BoardRef, keep?: Keep, wanted?: W
   for (const item of items) {
     const loc = parseLocation(item.location ?? "", item.title);
     if (!loc.places.length) loc.places = [{ country: "FR" }];
-    if (keep && !keep(loc.places, loc.remote)) continue;
+    if (keep && !keep(loc.places, loc.remote, item.title)) continue;
     const url = `https://${board.token}/fr/annonce/${item.url}`;
     const image = item.image_wide?.src ? `https://${board.token}${item.image_wide.src}` : undefined;
     // Details (description, experience) only where a search could use them, within a cap.
@@ -338,7 +339,7 @@ export async function welcomekit(board: BoardRef, keep?: Keep): Promise<Normaliz
     if (/candidature[s]? spontan/i.test(job.name)) continue;
     const raw = [job.office?.city, job.office?.country?.en].filter(Boolean).join(", ");
     const loc = parseLocation(raw, job.name);
-    if (keep && !keep(loc.places, loc.remote)) continue;
+    if (keep && !keep(loc.places, loc.remote, job.name)) continue;
     const description = [htmlToText(job.description ?? ""), htmlToText(job.profile ?? "")].filter(Boolean).join("\n\n");
     // The company's own career site first, the Welcome to the Jungle page otherwise.
     const urls = job.websites_urls ?? [];
@@ -408,14 +409,14 @@ export async function workday(board: BoardRef, keep?: Keep, wanted?: Wanted): Pr
     if (wanted && !wanted(item.title)) continue;
     const listed = parseLocation(item.locationsText ?? "", item.title);
     // "2 Locations" says nothing yet: the detail decides.
-    if (keep && listed.places.length > 0 && !keep(listed.places, listed.remote)) continue;
+    if (keep && listed.places.length > 0 && !keep(listed.places, listed.remote, item.title)) continue;
     const detail = (await (await get(`${api}${item.externalPath}`)).json().catch(() => null)) as WdDetail | null;
     const info = detail?.jobPostingInfo;
     if (!info?.title) continue;
     const country = info.country?.descriptor ?? "";
     const raw = [info.location, ...(info.additionalLocations ?? [])].filter(Boolean).map((l) => (country ? `${l}, ${country}` : l)).join("; ");
     const loc = parseLocation(raw, info.title);
-    if (keep && !keep(loc.places, loc.remote)) continue;
+    if (keep && !keep(loc.places, loc.remote, item.title)) continue;
     const description = htmlToText(info.jobDescription ?? "");
     const url = info.externalUrl ?? `https://${host}/${site}${item.externalPath}`;
     out.push({
@@ -455,7 +456,7 @@ export async function polymer(board: BoardRef, keep?: Keep, wanted?: Wanted): Pr
     else if (/remote/.test(remoteness)) loc.remote = "remote";
     // Spontaneous applications are not offers.
     if (/open application|candidature[s]? spontan/i.test(item.title)) continue;
-    if ((keep && !keep(loc.places, loc.remote)) || (wanted && !wanted(item.title))) continue;
+    if ((keep && !keep(loc.places, loc.remote, item.title)) || (wanted && !wanted(item.title))) continue;
     const detail = (await (await get(`${api}/${item.id}`)).json()) as { description?: string | null; data?: { description?: string | null } };
     const description = htmlToText(detail.description ?? detail.data?.description ?? "");
     out.push({

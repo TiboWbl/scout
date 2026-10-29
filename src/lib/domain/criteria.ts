@@ -3,7 +3,7 @@ import { z } from "zod";
 // What a user is looking for. Produced by the LLM from free text (+ CV), then edited as chips.
 // Nothing here has a default value tied to a specific job or person.
 
-export const CONTRACTS = ["cdi", "cdd", "stage", "alternance", "freelance"] as const;
+export const CONTRACTS = ["cdi", "cdd", "stage", "alternance", "freelance", "vie"] as const;
 export type Contract = (typeof CONTRACTS)[number];
 
 export const CONTRACT_LABELS: Record<Contract | "unknown", string> = {
@@ -12,6 +12,7 @@ export const CONTRACT_LABELS: Record<Contract | "unknown", string> = {
   stage: "Stage",
   alternance: "Alternance",
   freelance: "Freelance",
+  vie: "V.I.E.",
   unknown: "Contrat non précisé",
 };
 
