@@ -270,6 +270,8 @@ export function profileBrief(criteria: Criteria, cv: CvSummary | null, experienc
     secteurs_a_eviter: criteria.sectorsAvoid,
     autres_secteurs: criteria.otherSectors.open ? (criteria.otherSectors.condition ?? "acceptés") : "refusés",
     contrats: criteria.contracts,
+    // A V.I.E. is abroad by definition: its country must never count against it.
+    ...(criteria.contracts.includes("vie") ? { vie: "La personne cherche aussi un V.I.E. : un V.I.E. se déroule à l'étranger, son pays n'est jamais un défaut." } : {}),
     experience_annees: experienceYears,
     langues: criteria.languages,
     deal_breakers: criteria.dealBreakers,

@@ -9,7 +9,7 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const key = (s: string) => fold(s).split(" ").map((w) => (w.length > 3 ? w.replace(/s$/, "") : w)).join(" ");
 const QUALIFIERS = new Set(["produit", "product", "digital", "digitale", "professionnel", "professionnelle", "courant", "avance", "avancee", "solide", "efficace", "agile", "client", "utilisateur", "user", "management", "skill"]);
 // Same skill, other spelling.
-const ALIASES: Record<string, string> = { ai: "ia", "intelligence artificielle": "ia", "artificial intelligence": "ia", kpi: "kpi", okrs: "okr", "adobe premiere pro": "premiere pro", "adobe premiere": "premiere pro", "adobe after effect": "after effect", "adobe photoshop": "photoshop", "adobe illustrator": "illustrator", "adobe indesign": "indesign" };
+const ALIASES: Record<string, string> = { ai: "ia", "intelligence artificielle": "ia", "artificial intelligence": "ia", kpi: "kpi", okrs: "okr", "adobe premiere pro": "premiere pro", "adobe premiere": "premiere pro", "adobe after effect": "after effect", "adobe photoshop": "photoshop", "adobe illustrator": "illustrator", "adobe indesign": "indesign", arbitrage: "trade off", "trade offs": "trade off", tradeoff: "trade off" };
 
 // For display: "roadmap" reads "Roadmap"; "iOS" and "SQL" stay as written.
 export const skillLabel = (name: string) => (/^[a-zà-ÿ]/.test(name) && !/[A-Z]/.test(name.slice(1)) ? name.charAt(0).toUpperCase() + name.slice(1) : name);
@@ -95,7 +95,7 @@ export function cvSkillsFrom(cvText: string, names: string[]): string[] {
 export const spellings = (k: string) => [k, ...Object.entries(ALIASES).filter(([, v]) => v === k).map(([a]) => a), ...(k === "anglai" ? ["english"] : [])];
 
 // Words too general to be a skill on their own ("data", "produit"): never counted alone.
-const TOO_GENERAL = new Set(["data", "analyse", "produit", "product", "digital", "projet", "project", "client", "gestion", "business", "management", "equipe", "outil", "process", "strategie", "it", "web", "tech", "technique", "service", "operation", "vision", "impact", "qualite", "suivi", "conseil", "performance", "informatique", "workflow", "impact direct", "outils digitaux", "digitalisation", "standard"]);
+const TOO_GENERAL = new Set(["data", "analyse", "produit", "product", "digital", "projet", "project", "client", "gestion", "business", "management", "equipe", "outil", "process", "strategie", "it", "web", "tech", "technique", "service", "operation", "vision", "impact", "qualite", "suivi", "conseil", "performance", "informatique", "workflow", "impact direct", "outils digitaux", "digitalisation", "standard", "transformation"]);
 
 const NEUTRAL = new Set(["produit", "product", "digital", "digitale", "professionnel", "professionnelle", "courant", "avance", "avancee", "solide", "efficace"]);
 const SHORT_SKILLS = new Set(["ia", "ux", "ui", "qa", "bi", "ml", "r", "c"]);
