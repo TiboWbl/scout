@@ -230,9 +230,9 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
         return (
           <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
             <h2 className="font-display text-xl font-bold">En bref</h2>
-            <p className="mt-2 text-[15px] leading-relaxed">{verdict}</p>
+            <p className="mt-2 max-w-[72ch] text-[15px] leading-relaxed">{verdict}</p>
             {recruiter?.avis && (
-              <p className="mt-2 text-[15px] leading-relaxed">
+              <p className="mt-2 max-w-[72ch] text-[15px] leading-relaxed">
                 <span className="font-semibold">Lu par un recruteur : </span>
                 {recruiter.avis}
               </p>

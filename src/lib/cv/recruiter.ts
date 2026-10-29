@@ -25,6 +25,9 @@ export type Recruiter = { target: string; avis: string; atouts: { point: string;
 const quoted = (whole: string, part: unknown) => typeof part === "string" && part.trim().length >= 8 && fold(whole).includes(fold(part.trim().replace(/^[«"“]\s*|\s*[»"”]$/g, "")));
 const objects = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null) : []);
 
+// Markdown the model sometimes adds ("l'*IA*", "**API**") and dashes the interface never uses.
+const plain = (s: string) => s.replace(/\*{1,2}([^*\n]+)\*{1,2}/g, "$1").replace(/\*+/g, "").replace(/\s*—\s*/g, ", ").trim();
+
 export type Suggestion = { ligne: string; proposition: string; pourquoi: string | null };
 
 export async function readAsRecruiter(
@@ -45,18 +48,18 @@ export async function readAsRecruiter(
   };
   const recruiter: Recruiter = {
     target,
-    avis: (typeof read.avis === "string" ? read.avis : strings(read.avis).join(" ")).trim().slice(0, 600),
+    avis: plain(typeof read.avis === "string" ? read.avis : strings(read.avis).join(" ")).slice(0, 600),
     // A strength counts only with its proof in the CV, a gap of an offer only with its words in the offer.
     atouts: objects(read.atouts)
       .filter((x) => typeof x.point === "string" && quoted(text, x.citation_cv))
-      .map((x) => ({ point: String(x.point), citation: String(x.citation_cv).trim() }))
+      .map((x) => ({ point: plain(String(x.point)), citation: String(x.citation_cv).trim() }))
       .slice(0, 3),
     manques: objects(read.manques)
       // Without an offer, a gap must be one of the role's keywords, and really absent from the CV.
       .filter((x) => typeof x.point === "string" && (offer ? quoted(offer.text, x.citation_poste) : missingKeyword(x.citation_poste)))
-      .map((x) => ({ point: String(x.point), citation: offer ? String(x.citation_poste).trim() : null }))
+      .map((x) => ({ point: plain(String(x.point)), citation: offer ? String(x.citation_poste).trim() : null }))
       .slice(0, 3),
-    conseils: strings(read.personnaliser).map((c) => c.replace(/\*\*/g, "")).slice(0, 3),
+    conseils: strings(read.personnaliser).map(plain).slice(0, 3),
   };
   // A rewrite counts only if its line is really in the CV, the line can gain something (a line that
   // already opens on a verb, shows a figure and stays short is left alone), and the rewrite loses
@@ -70,7 +73,7 @@ export async function readAsRecruiter(
   const suggestions = objects(read.lignes)
     .filter((x): x is { ligne: string; proposition: string; pourquoi?: unknown } => typeof x.ligne === "string" && typeof x.proposition === "string" && x.ligne.length > 15)
     .filter((x) => cv.includes(fold(x.ligne)) && !strongLine(x.ligne) && kept(x.ligne, x.proposition))
-    .map((x) => ({ ligne: x.ligne, proposition: x.proposition, pourquoi: typeof x.pourquoi === "string" ? x.pourquoi : null }))
+    .map((x) => ({ ligne: x.ligne, proposition: plain(x.proposition), pourquoi: typeof x.pourquoi === "string" ? plain(x.pourquoi) : null }))
     .slice(0, 3);
   return { recruiter, suggestions };
 }

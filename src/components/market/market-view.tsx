@@ -33,7 +33,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché : {m.role}</h1>
-          <p className="mt-2 max-w-3xl text-[15px] text-muted">
+          <p className="mt-2 max-w-[68ch] text-[15px] text-muted">
             Les offres de {m.role}
             {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
             <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.

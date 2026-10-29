@@ -69,11 +69,11 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         </span>
       </header>
 
-      <h3 className="font-display text-xl font-bold leading-[1.15] tracking-tight">
+      <h2 className="font-display text-xl font-bold leading-[1.15] tracking-tight">
         <button type="button" onClick={onOpen} className="text-left focus:outline-none focus-visible:underline">
           {offer.title}
         </button>
-      </h3>
+      </h2>
 
       <div className="flex flex-wrap gap-1.5 text-[12.5px] font-medium text-muted">
         <span className="rounded-full bg-pill px-2.5 py-1">{placeLabel(offer.places, offer.location_raw)}</span>

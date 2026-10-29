@@ -83,7 +83,7 @@ export function isNewOffer(offer: Pick<FeedOffer, "published_at" | "first_seen_a
 }
 
 // The "Nouveau" pill, shared by the cards and Aujourd'hui.
-export const NEW_PILL = "rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white";
+export const NEW_PILL = "rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-button-ink";
 
 export const LEVEL_ORDER: Record<Level, number> = { coeur: 0, solide: 1, tremplin: 2, ecartee: 3 };
 

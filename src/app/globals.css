@@ -149,6 +149,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* No lone word on the last line of a paragraph. */
+p {
+  text-wrap: pretty;
+}
+
 /* Company accent variables. Values are computed per company by src/lib/design/color.ts.
    .tinted-vars exposes them; .tinted also paints the surface with the calm tint. */
 .tinted,
