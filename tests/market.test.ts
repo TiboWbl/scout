@@ -206,3 +206,20 @@ describe("le marché ne compte que le poste, pas la présentation de l'entrepris
     expect(roleText(plain)).toBe(plain);
   });
 });
+
+describe("une compétence précise dit la générale (MySQL est du SQL)", async () => {
+  const { inCvCheck, cvSkillsFrom } = await import("@/lib/views/skills");
+  it("MySQL compte pour SQL, Scrum pour Agile, jamais l'inverse", () => {
+    const has = inCvCheck("Requêtes sur MySQL, rituels Scrum", []);
+    expect(has("sql")).toBe(true);
+    expect(has("agile")).toBe(true);
+    expect(inCvCheck("SQL", [])("mysql")).toBe(false);
+    expect(cvSkillsFrom("Requêtes sur MySQL", ["SQL"])).toEqual(["SQL"]);
+  });
+  it("la grille conseille d'écrire aussi le mot général", async () => {
+    const { scoreCv } = await import("@/lib/cv/ats");
+    const r = scoreCv({ text: "Expérience\nAnalysé les données produit sur MySQL pour prioriser la roadmap", layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "cv.pdf", sizeBytes: 1000 }, { expected: ["SQL"], present: ["SQL"], keys: { SQL: "sql" } });
+    const k = r.categories.flatMap((c) => c.checks).find((c) => c.label.startsWith("Mots-clés"))!;
+    expect(k.good).toContain("« SQL (MySQL) »");
+  });
+});

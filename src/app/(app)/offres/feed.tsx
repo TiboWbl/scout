@@ -14,6 +14,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { EditSearchButton, SearchPanel } from "@/components/search-panel";
 import { SortingBanner, useSorting } from "@/components/sorting-progress";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
+import { haystack, matchesSearch } from "@/lib/search";
 
 type Filter = "all" | Exclude<Level, "ecartee"> | "ecartees";
 
@@ -168,7 +169,7 @@ export function Feed({ sortHere = true, items: initial, openness, pending, total
   // Search by company or title, accents and case ignored.
   const fold = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const q = fold(query.trim());
-  const matches = (i: FeedItem) => !q || fold(`${i.offer.title} ${i.offer.company.name} ${i.offer.company.brand ?? ""}`).includes(q);
+  const matches = (i: FeedItem) => !q || matchesSearch(haystack(i.offer), query);
 
   const shown = main
     .filter(matches)

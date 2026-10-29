@@ -1,4 +1,4 @@
-import { skillText, spellings } from "@/lib/views/skills";
+import { impliedBy, skillText, spellings } from "@/lib/views/skills";
 
 // Scout's CV grid, out of 100. There is no universal ATS score: this one is transparent, each lost
 // point says why and how to fix it. Pure functions, run on the server (contacts are found here by
@@ -178,8 +178,17 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   const toProve = present.filter((k) => !roleKeywords.languages?.includes(k));
   const proved = toProve.filter((k) => spellings(keyOf(k)).some((f) => inExperience.includes(` ${f} `)));
   const listed = toProve.filter((k) => !proved.includes(k));
+  // Found through a more precise word (MySQL for SQL): a recruiter understands, a strict ATS may not.
+  // As the CV writes it ("MySQL", not "mysql").
+  const asWritten = (w: string) => text.match(new RegExp(`(?<![A-Za-z])${w.replace(/ /g, "[\\s/-]?")}(?![A-Za-z])`, "i"))?.[0] ?? w;
+  const precise = present
+    .map((k) => [k, impliedBy(text, keyOf(k))] as const)
+    .filter((x): x is readonly [string, string] => Boolean(x[1]))
+    .map(([k, w]) => [k, asWritten(w)] as const);
+  const preciseTip = precise.length ? ` ${precise.map(([k, w]) => `${k} est reconnu grâce à « ${w} »`).join(", ")} : écris aussi le mot général, par exemple « ${precise[0][0]} (${precise[0][1]}) », pour les logiciels qui cherchent le mot exact.` : "";
+  const keywordCheck = check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, keywordMax, `Absents de ton CV, du plus demandé au moins demandé : ${missing.map(withShare).join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.${preciseTip}`, adequacy);
   const adequation: Check[] = [
-    check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, keywordMax, `Absents de ton CV, du plus demandé au moins demandé : ${missing.map(withShare).join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),
+    keywordCheck,
     ...(titles.length
       ? [
           check(Boolean(titled), "Intitulé visé en tête du CV", 3, `Écris en haut de ton CV, sous ton nom, l'intitulé du poste visé tel que les offres l'écrivent : ${named}. Ajoute dessous une accroche de deux lignes (ton expérience, ce que tu sais faire).`),
@@ -194,6 +203,7 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
     c.why = why(c.label);
     if (c.ok) c.good = good(c.label);
   }
+  if (keywordCheck.ok && preciseTip) keywordCheck.good = `${keywordCheck.good}${preciseTip}`;
 
   const categories: Category[] = [
     { key: "lisibilite", label: "Lisibilité machine", max: 40, checks: lisibilite, score: 0 },

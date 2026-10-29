@@ -19,11 +19,26 @@ export const skillLabel = (name: string) => (/^[a-zà-ÿ]/.test(name) && !/[A-Z]
 // A skill is found in a text normalised this way, between spaces.
 export const skillText = (d: string) => ` ${key(d)} `;
 
-// Whether a CV says a skill: among the skills kept at the last analysis, or written in the CV summary.
+// A more precise skill that says the general one, as a recruiter reads it: MySQL is SQL, Scrum is
+// Agile. The other way round never holds (SQL does not say MySQL).
+const IMPLIED_BY: Record<string, string[]> = {
+  sql: ["mysql", "postgresql", "postgre", "postgres", "sql server", "mssql", "t sql", "tsql", "pl sql", "plsql", "sqlite", "mariadb", "bigquery", "snowflake", "oracle sql"],
+  agile: ["scrum", "kanban", "safe", "scrum master", "sprint"],
+};
+// Which precise skill of the text says this general one, if the general word itself is absent.
+export function impliedBy(text: string, k: string): string | null {
+  const t = ` ${key(text)} `;
+  if (spellings(k).some((f) => t.includes(` ${f} `))) return null;
+  return (IMPLIED_BY[k] ?? []).find((f) => t.includes(` ${f} `)) ?? null;
+}
+
+// Whether a CV says a skill: among the skills kept at the last analysis, or written in the CV summary,
+// or through a more precise one (MySQL for SQL).
 export function inCvCheck(cvText: string, cvSkills: string[]) {
   const cv = ` ${key(cvText)} `;
   const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
-  return (k: string) => fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `));
+  const listed = ` ${[...fromCv].join(" ")} `;
+  return (k: string) => fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `)) || (IMPLIED_BY[k] ?? []).some((f) => cv.includes(` ${f} `) || listed.includes(` ${f} `));
 }
 
 // A language is its name, whatever the level written ("anglais courant", "English").
@@ -88,7 +103,7 @@ export function cvSkillsFrom(cvText: string, names: string[]): string[] {
     const k = ALIASES[key(name)] ?? key(name);
     if (!k || out.has(k)) continue;
     // The whole phrase, as words: "redis" is not in "redistribution", "api" not in "apiculture".
-    if (spellings(k).some((f) => text.includes(` ${f} `))) out.set(k, name);
+    if (spellings(k).some((f) => text.includes(` ${f} `)) || (IMPLIED_BY[k] ?? []).some((f) => text.includes(` ${f} `))) out.set(k, name);
   }
   return [...out.values()];
 }

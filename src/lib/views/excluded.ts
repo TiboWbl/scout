@@ -1,3 +1,5 @@
+import { CONTRACT_LABELS } from "@/lib/domain/criteria";
+import { words } from "@/lib/search";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SCORE_SELECT } from "@/lib/domain/feed";
 
@@ -11,15 +13,18 @@ export async function loadExcludedPage(db: SupabaseClient, opts: { userId?: stri
   const term = (opts.search ?? "").replace(/[%_,()*\\]/g, " ").trim();
   if (term) {
     // By title and by company at once: one round trip less while the person waits.
-    const [byTitle, byCompany] = await Promise.all([
-      db.from("offers").select("id").is("archived_at", null).ilike("title", `%${term}%`).limit(100),
+    // By title or place, by contract ("V.I.E.", "CDI") and by company at once.
+    const contract = Object.entries(CONTRACT_LABELS).find(([key, label]) => key !== "unknown" && (words(label) === words(term) || key === words(term)))?.[0];
+    const [byTitle, byCompany, byContract] = await Promise.all([
+      db.from("offers").select("id").is("archived_at", null).or(`title.ilike.%${term}%,location_raw.ilike.%${term}%`).limit(150),
       (async () => {
         const { data } = await db.from("companies").select("id").ilike("name", `%${term}%`).limit(50);
         const companyIds = (data ?? []).map((c) => c.id as string);
         return companyIds.length ? await db.from("offers").select("id").is("archived_at", null).in("company_id", companyIds).limit(150) : { data: [] };
       })(),
+      contract ? db.from("offers").select("id").is("archived_at", null).eq("contract", contract).limit(300) : Promise.resolve({ data: [] }),
     ]);
-    ids = [...new Set([...(byTitle.data ?? []), ...(byCompany.data ?? [])].map((o) => o.id as string))];
+    ids = [...new Set([...(byTitle.data ?? []), ...(byCompany.data ?? []), ...(byContract.data ?? [])].map((o) => o.id as string))];
     if (ids.length === 0) return [];
   }
   // Closed offers are neither listed nor counted.
