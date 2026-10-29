@@ -55,5 +55,13 @@ export async function marketPage(db: SupabaseClient, userId: string): Promise<Ma
       // A move of one or two offers is not a trend, however large in points on a small market.
       if (before && Math.abs(s.count - before.count) >= 3) trend[s.key ?? s.name] = s.share - before.share;
     }
-  return { today, since: ref?.day ?? null, trend, insights: marketInsights(today), cvKnown };
+  // Each skill's average share over the pictures of the last two weeks counted the same way.
+  const recent = kept.filter((s) => s.data.method === today.method && s.day >= historyStart(historyFrom) && Date.parse(s.day) > t - 14 * DAY);
+  const steady: Record<string, number> = {};
+  for (const s of today.skills) {
+    const k = s.key ?? s.name;
+    const shares = recent.map((r) => r.data.skills.find((x) => (x.key ?? x.name) === k)?.share ?? 0);
+    steady[k] = shares.length ? shares.reduce((a, b) => a + b, 0) / shares.length : s.share;
+  }
+  return { today, since: ref?.day ?? null, trend, insights: marketInsights(today, steady), cvKnown };
 }

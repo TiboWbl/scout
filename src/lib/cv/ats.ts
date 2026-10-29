@@ -1,3 +1,5 @@
+import { skillText, spellings } from "@/lib/views/skills";
+
 // Scout's CV grid, out of 100. There is no universal ATS score: this one is transparent, each lost
 // point says why and how to fix it. Pure functions, run on the server (contacts are found here by
 // regex, never by the model).
@@ -39,7 +41,7 @@ const LANGUAGE_LEVEL = /\b(a1|a2|b1|b2|c1|c2|courant|bilingue|natif|native|mater
 
 // Read at the start of a mission line only: "crédit" or "créatif" inside a sentence is not an action.
 const ACTION_VERBS =
-  /^(pilot|lanc|concu|developp|cre|optimis|ameliore|augment|redui|gere|dirig|coordonn|mis en place|deploy|analys|automatis|negoci|conduit|realis|organis|livr|anim|defini|construi|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed)\w*/;
+  /^(pilot|lanc|concu|concev|developp|cre[eé]|optimis|amelior|augment|redui|ger[eé]|dirig|coordonn|mis en place|mettre en place|deploy|analys|automatis|negoci|condui|realis|organis|livr|anim|defini|defin|construi|men[ée]|mener|redig|particip|contribu|encadr|form[eé]|former|assur|collabor|identifi|prioris|structur|recrut|conseill|accompagn|refond|migr|integr|test[eé]|mesur|mont[eé]|tourn[eé]|produi|garanti|support|fidelis|prospect|vend|sign[eé]|planifi|implement|supervis|elabor|etabli|instaur|initi|fond[eé]|cofond|transform|modernis|simplifi|standardis|document|present|trait[eé]|resolu|diagnostiq|install|configur|cod[eé]|programm|dessin|illustr|photographi|film|edit[eé]|publi|ecri|traduit|enseign|soign|administr|prepar|control|verifi|audit|evalu|etudi|interview|synthetis|negoc|piloter|lancer|concevoir|developper|creer|optimiser|ameliorer|gerer|coordonner|deployer|analyser|realiser|organiser|animer|definir|construire|rediger|accompagner|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed|coordinated|organi[sz]ed|conducted|wrote|produced|edited|filmed|negotiated|sold|trained|mentored|supported|defined|ran|grew|scaled|optimi[sz]ed|automated|migrated|redesigned|established|partnered|collaborated|presented|launch|lead|build|design|develop|manage|create|drive)\w*/;
 // Figures that show a result: percentages, money, multipliers, counts of people or things.
 const QUANTIFIED =
   /(?:[+−-]\s?)?\d+(?:[.,]\d+)?\s?(?:%|k€|m€|€|k\b|m\b|x\b|×|pts?\b|points?\b)|(?:\bx|×)\s?\d+\b|\b\d{1,3}(?:[ .,]?\d{3})*\+?\s(?:\w+\s)?(?:utilisateurs?|clients?|users?|personnes|people|entreprises|equipes?|developpeurs|devs|projets?|pays|ventes|leads|telechargements|downloads|membres|participants|collaborateurs|magasins|sites|produits|fonctionnalites|features|commandes|orders|transactions|abonnes|followers|visites|sessions|entretiens|interviews|tickets|candidats|partenaires|marches|langues|stakeholders|squads|sprints|releases|apps?)\b/gi;
@@ -129,13 +131,27 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   ];
 
   // Contenu (25)
-  const lines = text.split(/\n|•|·|▪|◦|‣/).map((l) => l.trim()).filter((l) => l.split(/\s+/).length >= 4);
+  // A PDF cuts a mission over several lines: a line starting in lower case continues the one before.
+  const raw = text.split(/\n|•|·|▪|◦|‣/).map((l) => l.trim()).filter(Boolean);
+  const joined: string[] = [];
+  for (const l of raw) {
+    if (joined.length && /^[a-zà-ÿ(,;:]/.test(l)) joined[joined.length - 1] += ` ${l}`;
+    else joined.push(l);
+  }
+  const lines = joined.filter((l) => l.split(/\s+/).length >= 4);
+  // The experience section: from its heading to the next one (education, skills, languages…).
+  const heading = (l: string) => l.split(/\s+/).length <= 4 && /\b(experiences?|parcours professionnel|work experience|employment|formations?|education|competences|skills|langues?|languages?|certifications?|centres? d.interet|interets|projets? personnels?|loisirs|outils)\b/.test(fold(l));
+  const start = joined.findIndex((l) => heading(l) && /\b(experience|parcours professionnel|employment)/.test(fold(l)));
+  const end = start >= 0 ? joined.findIndex((l, i) => i > start && heading(l) && !/\b(experience|parcours professionnel|employment)/.test(fold(l))) : -1;
+  const experience = start >= 0 ? joined.slice(start + 1, end > start ? end : undefined) : joined;
+  // A line with dates is a job's heading ("Product Manager, Acme (2023-2025)"), not a mission.
+  const missions = experience.filter((l) => l.split(/\s+/).length >= 4 && !/\b(19|20)\d{2}\b.{0,12}(\b(19|20)\d{2}\b|aujourd|present|actuel|now|today)/i.test(l));
   // Mission lines that open on an action verb, each counted once.
-  const verbs = lines.filter((l) => ACTION_VERBS.test(fold(l).replace(/^[^a-z]+/, ""))).length;
+  const verbs = missions.filter((l) => ACTION_VERBS.test(fold(l).replace(/^[^a-z]+/, ""))).length;
   const numbers = new Set((fold(text).match(QUANTIFIED) ?? []).map((m) => m.trim())).size;
   const longLines = lines.filter((l) => l.split(/\s+/).length > 35).length;
   const contenu: Check[] = [
-    check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} ligne${verbs > 1 ? "s" : ""} sur ${lines.length} commence${verbs > 1 ? "nt" : ""} ainsi, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
+    check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} mission${verbs > 1 ? "s" : ""} sur ${missions.length} commence${verbs > 1 ? "nt" : ""} ainsi, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
     check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats : combien, combien de fois, quel effet (+30 %, 2 000 personnes, 15 projets livrés, un budget de 50 k€, 3 jours gagnés). ${numbers} trouvé${numbers > 1 ? "s" : ""}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
     check(longLines <= 2, "Phrases courtes", 5, "Certaines lignes dépassent 35 mots : coupe-les en puces d'une ligne, une idée par puce.", longLines <= 2 ? 5 : longLines <= 5 ? 2 : 0),
   ];
@@ -155,11 +171,12 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   const titled = titles.find((t) => head.includes(phrase(t.title)));
   const named = titles.slice(0, 3).map((t) => `« ${t.title} »${t.count > 1 ? ` (${t.count} offres)` : ""}`).join(", ");
   // A skill proved in a mission: written in a sentence of at least 7 words, not only in a list.
-  const sentences = lines.filter((l) => l.split(/\s+/).length >= 7).map(phrase);
-  const keyOf = (k: string) => roleKeywords.keys?.[k] ?? fold(k);
+  // Read like Mon marché: the same normalised words (plural, case, accents, "user storie" for "user stories").
+  const inExperience = skillText(experience.filter((l) => l.split(/\s+/).length >= 5).join(" \n "));
+  const keyOf = (k: string) => roleKeywords.keys?.[k] || skillText(k).trim();
   // A language is shown by its level (checked above), not in a mission.
   const toProve = present.filter((k) => !roleKeywords.languages?.includes(k));
-  const proved = toProve.filter((k) => sentences.some((s) => s.includes(phrase(keyOf(k))) || s.includes(phrase(k))));
+  const proved = toProve.filter((k) => spellings(keyOf(k)).some((f) => inExperience.includes(` ${f} `)));
   const listed = toProve.filter((k) => !proved.includes(k));
   const adequation: Check[] = [
     check(missing.length === 0 && expected.length > 0, `Mots-clés du métier visé (${present.length}/${expected.length})`, keywordMax, `Absents de ton CV, du plus demandé au moins demandé : ${missing.map(withShare).join(", ")}. Ce sont les compétences les plus demandées dans ton marché : ajoute celles qui correspondent vraiment à ton expérience, avec les mots exacts des offres.`, adequacy),

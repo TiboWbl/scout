@@ -217,23 +217,44 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
         </div>
       </section>
       {(() => {
-        // What separates the score from 100, point by point: the details are just below.
-        const missing = result.categories.flatMap((c) => c.checks).filter((k) => k.points < k.max);
+        // The verdict first: a 90/100 CV is a very good CV, and the rest of the page is fine-tuning.
+        const missing = result.categories.flatMap((c) => c.checks).filter((k) => k.points < k.max).sort((a, b) => b.max - b.points - (a.max - a.points));
+        const verdict =
+          result.total >= 90
+            ? "Très bon CV : il se lit parfaitement par un logiciel de recrutement et va droit au but. Ce qui reste, ce sont des réglages fins."
+            : result.total >= 75
+              ? "Bon CV : quelques points à reprendre pour qu'il soit bien lu par les logiciels de recrutement et retienne l'attention."
+              : result.total >= 60
+                ? "CV correct, mais plusieurs points gênent sa lecture par un logiciel ou un recruteur : commence par ceux qui rapportent le plus."
+                : "Ton CV risque d'être mal lu par les logiciels de recrutement : commence par sa lisibilité, tout le reste en dépend.";
         return (
           <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-            <h2 className="font-display text-xl font-bold">{missing.length ? `Ce qui te sépare de 100` : "Un ATS lit parfaitement ton CV"}</h2>
-            <p className="mt-1 text-sm text-muted">
-              Un ATS (logiciel de recrutement) vérifie que ton CV se lit comme du texte, qu&apos;il est bien structuré (sections, dates), comment tes missions sont écrites, et s&apos;il contient les mots-clés du métier. Il ne juge pas ton parcours : c&apos;est le rôle de la lecture recruteur, plus bas.
-            </p>
-            {missing.length > 0 && (
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {missing.map((k) => (
-                  <li key={k.label} className="rounded-full bg-peach-soft px-3 py-1 text-[13px] font-medium text-peach-ink">
-                    {k.label} <span className="tabular-nums">−{k.max - k.points}</span>
-                  </li>
-                ))}
-              </ul>
+            <h2 className="font-display text-xl font-bold">En bref</h2>
+            <p className="mt-2 text-[15px] leading-relaxed">{verdict}</p>
+            {recruiter?.avis && (
+              <p className="mt-2 text-[15px] leading-relaxed">
+                <span className="font-semibold">Lu par un recruteur : </span>
+                {recruiter.avis}
+              </p>
             )}
+            {missing.length > 0 && (
+              <>
+                <h3 className="mt-4 text-[13px] font-semibold text-muted">Ce qui rapporte le plus</h3>
+                <ol className="mt-2 space-y-1.5 text-[14.5px]">
+                  {missing.slice(0, 3).map((k, i) => (
+                    <li key={k.label} className="flex gap-2.5">
+                      <span className="tabular-nums text-muted">{i + 1}.</span>
+                      <span>
+                        <span className="font-medium">{k.label}</span> <span className="tabular-nums text-muted">(+{k.max - k.points})</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+            <p className="mt-4 text-[13px] text-muted">
+              N&apos;ajoute que ce qui est vrai pour toi : un CV juste vaut mieux qu&apos;un 100/100. La note mesure la lecture par un logiciel (texte, structure, mots-clés de ton marché), pas la valeur de ton parcours.
+            </p>
           </section>
         );
       })()}
@@ -292,11 +313,10 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
 
       )}
 
-      {recruiter && (recruiter.avis || recruiter.atouts.length > 0) && (
+      {recruiter && (recruiter.atouts.length > 0 || recruiter.manques.length > 0 || recruiter.conseils.length > 0) && (
         <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
           <h2 className="font-display text-xl font-bold">Lecture recruteur</h2>
           <p className="mt-1 text-sm text-muted">Ton CV dans son ensemble, lu comme un recruteur pour « {recruiter.target} » : ce qui convainc, ce qui manque. Ce sont des conseils de fond, au-delà de l&apos;ATS.</p>
-          {recruiter.avis && <p className="mt-4 text-[15px] leading-relaxed">{recruiter.avis}</p>}
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
             {recruiter.atouts.length > 0 && (
               <div>

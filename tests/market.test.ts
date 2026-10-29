@@ -149,3 +149,34 @@ describe("conseils du CV tirés du marché", () => {
     expect((await find(missions.replace("Anglais", "Anglais : courant (C1)")))("Langues").ok).toBe(true);
   });
 });
+
+describe("grille du CV : missions lues comme un recruteur", () => {
+  const cv = [
+    "Alex Martin",
+    "Product Manager",
+    "Expérience",
+    "Product Manager, Acme (2023-2025)",
+    "• Rédigé les User Stories et priorisé le backlog avec",
+    "l'équipe de développement, en méthode agile",
+    "• Mené 20 entretiens utilisateurs pour cadrer la discovery",
+    "• Accompagné le lancement de 3 fonctionnalités, +15 % d'adoption",
+    "• Encadré un stagiaire et animé les rituels Scrum de l'équipe",
+    "Compétences",
+    "Roadmap, KPIs, SQL",
+  ].join("\n");
+  const run = async () => {
+    const { scoreCv } = await import("@/lib/cv/ats");
+    const result = scoreCv(
+      { text: cv, layout: { pages: 1, columnRatio: 0, spacedTitles: 0 }, filename: "CV Alex Martin.pdf", sizeBytes: 100_000 },
+      { expected: ["User stories", "Backlog", "Roadmap"], present: ["User stories", "Backlog", "Roadmap"], keys: { "User stories": "user storie", Backlog: "backlog", Roadmap: "roadmap" }, titles: [{ title: "Product Manager", count: 300 }] },
+    );
+    return (label: string) => result.categories.flatMap((c) => c.checks).find((c) => c.label.startsWith(label))!;
+  };
+  it("compte les verbes au début de chaque mission, même coupée sur deux lignes", async () => {
+    expect((await run())("Verbes d'action").fix).toContain("4 missions sur 4");
+  });
+  it("voit une compétence au pluriel ou en majuscules dans les expériences", async () => {
+    // "User Stories" and "backlog" are in a mission; "Roadmap" only in the skills list.
+    expect((await run())("Compétences prouvées").fix).toContain("Citées seulement dans une liste : Roadmap.");
+  });
+});
