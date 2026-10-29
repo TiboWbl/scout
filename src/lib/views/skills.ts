@@ -25,6 +25,8 @@ const IMPLIED_BY: Record<string, string[]> = {
   sql: ["mysql", "postgresql", "postgre", "postgres", "sql server", "mssql", "t sql", "tsql", "pl sql", "plsql", "sqlite", "mariadb", "bigquery", "snowflake", "oracle sql"],
   agile: ["scrum", "kanban", "safe", "scrum master", "sprint"],
 };
+// Every way a text can say a skill: its spellings, and the precise skills that say it.
+export const allForms = (k: string) => [...spellings(k), ...(IMPLIED_BY[k] ?? [])];
 // Which precise skill of the text says this general one, if the general word itself is absent.
 export function impliedBy(text: string, k: string): string | null {
   const t = ` ${key(text)} `;

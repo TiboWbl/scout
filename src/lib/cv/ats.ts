@@ -1,4 +1,4 @@
-import { impliedBy, skillText, spellings } from "@/lib/views/skills";
+import { allForms, impliedBy, skillText } from "@/lib/views/skills";
 
 // Scout's CV grid, out of 100. There is no universal ATS score: this one is transparent, each lost
 // point says why and how to fix it. Pure functions, run on the server (contacts are found here by
@@ -199,7 +199,7 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   const keyOf = (k: string) => roleKeywords.keys?.[k] || skillText(k).trim();
   // A language is shown by its level (checked above), not in a mission.
   const toProve = present.filter((k) => !roleKeywords.languages?.includes(k));
-  const proved = toProve.filter((k) => spellings(keyOf(k)).some((f) => inExperience.includes(` ${f} `)));
+  const proved = toProve.filter((k) => allForms(keyOf(k)).some((f) => inExperience.includes(` ${f} `)));
   const listed = toProve.filter((k) => !proved.includes(k));
   // Found through a more precise word (MySQL for SQL): a recruiter understands, a strict ATS may not.
   // As the CV writes it ("MySQL", not "mysql").

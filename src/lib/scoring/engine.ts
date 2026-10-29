@@ -403,3 +403,27 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
   }
   return rows;
 }
+
+// A posting online for more than six months on the company's own page is almost always a standing
+// listing (a pool of candidates), not a post to fill now: never a crush, and said so. Run after each
+// sort, for every person. Needs the service role.
+export const PERMANENT_DAYS = 180;
+export async function capStandingPostings(db: SupabaseClient): Promise<number> {
+  const before = new Date(Date.now() - PERMANENT_DAYS * 86_400_000).toISOString();
+  const { data } = await db
+    .from("offer_scores")
+    .select("user_id, offer_id, criteria_version, watch, offer:offers!inner(published_at, archived_at)")
+    .eq("level", "coeur")
+    .is("offer.archived_at", null)
+    .lt("offer.published_at", before)
+    .limit(2000);
+  let n = 0;
+  for (const r of (data ?? []) as unknown as { user_id: string; offer_id: string; criteria_version: number; watch: string[] | null; offer: { published_at: string } }[]) {
+    const months = Math.round((Date.now() - Date.parse(r.offer.published_at)) / (30 * 86_400_000));
+    const note = `En ligne depuis ${months} mois : sans doute une annonce permanente. Postule si l'entreprise te plaît, sans trop compter dessus.`;
+    const watch = [note, ...(r.watch ?? []).filter((w) => !/annonce permanente/.test(w))].slice(0, 2);
+    await db.from("offer_scores").update({ level: "solide", watch }).eq("user_id", r.user_id).eq("offer_id", r.offer_id).eq("criteria_version", r.criteria_version);
+    n++;
+  }
+  return n;
+}

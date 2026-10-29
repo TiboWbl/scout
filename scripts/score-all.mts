@@ -5,7 +5,7 @@ import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 
 const { createAdminClient } = await import("@/lib/supabase/admin");
-const { runScoring } = await import("@/lib/scoring/engine");
+const { capStandingPostings, runScoring } = await import("@/lib/scoring/engine");
 
 const db = createAdminClient();
 const started = Date.now();
@@ -33,4 +33,6 @@ for (const { id } of profiles ?? []) {
     if (call === 39) unfinished++;
   }
 }
+const standing = await capStandingPostings(db).catch(() => 0);
+console.log(`Annonces permanentes retirées des coups de cœur : ${standing}`);
 console.log(`${profiles?.length ?? 0} profil(s), ${judged} offre(s) triée(s), ${unfinished} profil(s) à terminer au prochain passage, ${Math.round((Date.now() - started) / 1000)} s`);

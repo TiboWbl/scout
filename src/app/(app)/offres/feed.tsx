@@ -291,7 +291,7 @@ export function Feed({ collectingSince = null, sortHere = true, items: initial, 
             className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm placeholder:text-muted focus:border-ink focus:outline-none"
           />
           <EditSearchButton className="h-full w-full justify-center whitespace-nowrap" />
-          <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-nowrap overflow-x-auto rounded-xl border border-line bg-surface p-1 sm:flex-wrap">
+          <div role="radiogroup" aria-label="Niveau" className="inline-flex flex-wrap gap-y-1 rounded-xl border border-line bg-surface p-1">
             {LEVEL_FILTERS.map((f) => (
               <button
                 key={f.key}

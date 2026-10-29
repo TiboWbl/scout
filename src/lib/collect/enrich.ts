@@ -26,7 +26,18 @@ const logoBytes = async (domain: string): Promise<Buffer | null> => {
 // (LinkedIn, Facebook…): that is not the employer's logo.
 const BORROWED = ["linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "youtube.com", "indeed.com", "welcometothejungle.com", "glassdoor.com", "malt.fr"];
 let borrowed: Promise<Buffer[]> | null = null;
+// Whether the company's site still answers (any HTTP status counts, even a refusal): a dead domain's
+// "logo" is whatever the CDN found elsewhere, often its LinkedIn page.
+export async function siteAnswers(domain: string): Promise<boolean> {
+  for (const host of [domain, `www.${domain}`]) {
+    const res = await fetch(`https://${host}`, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(8_000) }).catch(() => null);
+    if (res) return true;
+  }
+  return false;
+}
+
 export async function hasOwnLogo(domain: string): Promise<boolean> {
+  if (!(await siteAnswers(domain))) return false;
   const bytes = await logoBytes(domain);
   if (!bytes) return false;
   if (BORROWED.some((d) => domain === d || domain.endsWith(`.${d}`))) return false;
