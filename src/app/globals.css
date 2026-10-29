@@ -149,6 +149,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* A press is felt: buttons give way slightly, never for people who asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active,
+  a.btn-soft:active {
+    scale: 0.97;
+  }
+}
+
 /* No lone word on the last line of a paragraph. */
 p {
   text-wrap: pretty;
