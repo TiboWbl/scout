@@ -180,3 +180,29 @@ describe("grille du CV : missions lues comme un recruteur", () => {
     expect((await run())("Compétences prouvées").fix).toContain("Citées seulement dans une liste : Roadmap.");
   });
 });
+
+describe("le marché ne compte que le poste, pas la présentation de l'entreprise", async () => {
+  const { roleText } = await import("@/lib/domain/requirements");
+  const offer = [
+    "Qui sommes-nous ?",
+    "Acme est au cœur de la transformation du marché de l'immobilier, avec une culture agile et bienveillante.",
+    "Tes missions :",
+    "• Construire la roadmap produit avec les équipes tech et design, et la défendre auprès de la direction.",
+    "• Mener la discovery : entretiens utilisateurs, tests, analyse des KPIs pour décider des priorités.",
+    "Profil recherché :",
+    "• 2 ans d'expérience en product management, à l'aise avec SQL et les arbitrages.",
+    "Avantages :",
+    "• Tickets restaurant, mutuelle, télétravail, budget formation et équipe en méthode agile.",
+  ].join("\n");
+  it("garde les missions et le profil, retire la présentation et les avantages", () => {
+    const t = roleText(offer);
+    expect(t).toContain("roadmap");
+    expect(t).toContain("SQL");
+    expect(t).not.toContain("transformation");
+    expect(t).not.toContain("Tickets restaurant");
+  });
+  it("une offre sans titres de section reste entière", () => {
+    const plain = "Nous cherchons un Product Manager pour construire la roadmap et mener la discovery avec les équipes, au cœur de la transformation de notre marché. ".repeat(3);
+    expect(roleText(plain)).toBe(plain);
+  });
+});

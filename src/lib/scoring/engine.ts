@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CONTRACT_LABELS, Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
-import { chancesCap, prefilter } from "./prefilter";
+import { chancesCap, EXPERIENCE_GAP_EXCLUDE, gapReason, prefilter } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 
 export const languageReason = (l: { language: string; quote: string }) => `L'offre demande de parler ${l.language} : « ${l.quote} ». Si tu le parles, ajoute-le à ta recherche.`;
@@ -298,7 +298,7 @@ async function loadFeedback(db: SupabaseClient, userId: string): Promise<Feedbac
 // The experience gate keeps its word whatever the model thought of the chances. When the model found
 // the years asked (with a verified quote) and the detector had not, the gate applies with them, and the
 // shared offer learns them for everyone.
-function scoreRow(
+export function scoreRow(
   base: { user_id: string; criteria_version: number; judge_key?: string },
   offerId: string,
   outOfZone: boolean,
@@ -330,15 +330,21 @@ function scoreRow(
     if (service) service.from("offers").update({ experience_min_years: found }).eq("id", offerId).is("experience_min_years", null).then(() => undefined);
     if (experienceYears !== null) {
       effectiveGap = Math.max(gap, found - experienceYears);
-      if (found - experienceYears >= 4)
-        return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: `${found} ans d'expérience demandés, ${experienceYears} de ton côté.`, scored_by: "llm" };
+      if (found - experienceYears >= EXPERIENCE_GAP_EXCLUDE) return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: gapReason(found, experienceYears), scored_by: "llm" };
     }
   }
   // No years anywhere: the missions' level weighs as an estimate (confirmé ≈ 3 years, senior ≈ 5).
   if (knownYears === null && found === null && seniority && experienceYears !== null) effectiveGap = Math.max(effectiveGap, (seniority === "senior" ? 5 : seniority === "confirme" ? 3 : 0) - experienceYears);
   // A crush is a match within reach: 2 years or more above the person's experience is Solide at best.
-  const level = rest.level === "coeur" && effectiveGap >= 2 ? "solide" : rest.level;
-  return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };
+  let level = rest.level === "coeur" && effectiveGap >= 2 ? "solide" : rest.level;
+  // Two years more written in the offer: a stretch, worth a try, not a solid match.
+  const statedYears = knownYears ?? found;
+  let watch = rest.watch;
+  if (statedYears !== null && experienceYears !== null && statedYears - experienceYears >= 2) {
+    if (level === "coeur" || level === "solide") level = "tremplin";
+    watch = [`Demande ${statedYears} ans, toi ${experienceYears} : à tenter si tes missions s'en rapprochent.`, ...watch.filter((w) => !/ans d'expérience|expérience demandée/i.test(w))].slice(0, 2);
+  }
+  return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, watch, level, score_chances: Math.min(rest.score_chances, chancesCap(effectiveGap)), scored_by: "llm" };
 }
 
 // An offer the person added themselves: same gates and judgement, no title pre-sort, right away.

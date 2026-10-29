@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Criteria } from "@/lib/domain/criteria";
-import { splitRequirements } from "@/lib/domain/requirements";
+import { roleText, splitRequirements } from "@/lib/domain/requirements";
 import { isExcerptOnly } from "@/lib/collect/complete";
 import { slug } from "@/lib/collect/normalize";
 import type { Skill } from "@/lib/scoring/judge";
@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 const MAX_BASE = 1500;
 // The way the figures are counted. Pictures counted another way are never compared with today's:
 // a change of method is not a change of the market.
-export const MARKET_METHOD = 3;
+export const MARKET_METHOD = 4;
 
 export type Range = { low: number; median: number; high: number; n: number };
 export type MarketSkill = SkillStat & { mine: number };
@@ -160,13 +160,15 @@ export async function computeMarket(
   const known = new Set(base.map((r) => r.id));
   const copies = new Set(named.filter((r) => !known.has(r.id)).map((r) => r.id));
 
-  const descriptions = read.map((r) => texts.get(r.id) ?? "").filter((d) => d.length > 300);
+  // Skills are counted in the job itself (missions, profile), never in the company's presentation or
+  // its perks: "au cœur des transformations du marché" asks nothing of the candidate.
   const withText = read.filter((r) => (texts.get(r.id) ?? "").length > 300);
-  const parts = withText.map((r) => splitRequirements(texts.get(r.id)!));
+  const descriptions = withText.map((r) => roleText(texts.get(r.id)!));
+  const parts = descriptions.map((d) => splitRequirements(d));
   const demand = skillDemand(descriptions, set.vocabulary, cvText, cvSkills, 12, parts);
 
   // Where each skill would count for the person: the offers of their own selection that cite it.
-  const mineTexts = selection.map((id) => skillText(texts.get(id) ?? "")).filter((x) => x.length > 300);
+  const mineTexts = selection.map((id) => skillText(roleText(texts.get(id) ?? ""))).filter((x) => x.length > 300);
   const skills: MarketSkill[] = (Object.values(demand.byKind) as SkillStat[][]).flat().map((s) => {
     const forms = spellings(s.key ?? "");
     return { ...s, mine: mineTexts.filter((x) => forms.some((f) => x.includes(` ${f} `))).length };

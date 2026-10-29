@@ -124,10 +124,10 @@ describe("séniorité et écart d'expérience (portes)", () => {
     expect(prefilter(offer("Senior Product Manager"), PROFILE, 2)).toMatchObject({ pass: true, experienceGap: 3 });
   });
 
-  it("garde un écart de 2 ans, écarte un écart de 4 ans", () => {
+  it("garde un écart de 2 ans écrit dans l'offre, écarte un écart de 3 ans", () => {
     expect(prefilter(offer("Product Manager II"), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
     expect(prefilter(offer("Product Manager", 3), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
-    expect(prefilter(offer("Product Manager", 5), PROFILE, 1).pass).toBe(false);
+    expect(prefilter(offer("Product Manager", 4), PROFILE, 1)).toMatchObject({ pass: false, reason: "4 ans d'expérience demandés, 1 de ton côté : un écart que les recruteurs comblent rarement." });
   });
 
   it("réduit les chances en proportion de l'écart", async () => {
@@ -300,5 +300,19 @@ describe("métier inventé et formations", async () => {
   it("une formation n'est pas une offre d'emploi, un chargé de formation si", () => {
     expect(isTraining("Formation Monteur audiovisuel - Paris")).toBe(true);
     expect(isTraining("Chargé de formation (H/F)")).toBe(false);
+  });
+});
+
+describe("écart d'expérience après le jugement : où la personne peut être prise", () => {
+  const judged = { level: "solide", why: "Le métier visé.", watch: [], score_interet: 80, score_chances: 80, score_tremplin: 50, experience_years: null, contract_found: null, company_product: null, skills: null, seniority: null } as never;
+  it("2 ans de plus écrits dans l'offre : Tremplin au mieux, avec la raison", async () => {
+    const { scoreRow } = await import("@/lib/scoring/engine");
+    const row = scoreRow({ user_id: "u", criteria_version: 1 }, "o", false, 2, judged, 1, 3, null);
+    expect(row.level).toBe("tremplin");
+    expect(row.watch).toEqual(["Demande 3 ans, toi 1 : à tenter si tes missions s'en rapprochent."]);
+  });
+  it("1 an de plus : inchangé", async () => {
+    const { scoreRow } = await import("@/lib/scoring/engine");
+    expect(scoreRow({ user_id: "u", criteria_version: 1 }, "o", false, 1, judged, 1, 2, null).level).toBe("solide");
   });
 });

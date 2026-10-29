@@ -23,8 +23,10 @@ export type GateResult =
   | { pass: true; outOfZone: boolean; experienceGap: number; notes: string[] }
   | { pass: false; reason: string };
 
-// From this gap on (required − real, in years) an offer is set aside rather than scored lower.
-const EXPERIENCE_GAP_EXCLUDE = 4;
+// From this gap on (required − real, in years) an offer is set aside rather than scored lower: a recruiter
+// bends on a year, sometimes two for a strong junior, almost never three.
+export const EXPERIENCE_GAP_EXCLUDE = 3;
+export const gapReason = (required: number, years: number) => `${required} an${plural(required)} d'expérience demandé${plural(required)}, ${years} de ton côté : un écart que les recruteurs comblent rarement.`;
 
 // Chances cap by experience gap: up to 2 years the offer stays, with chances lowered in proportion;
 // at 3 years it stays with low chances.
@@ -74,12 +76,14 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
   let experienceGap = 0;
   if (experienceYears !== null) {
     const implied = titleSeniorityYears(offer.title);
-    if (implied - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
+    // A title's seniority is an estimate ("Senior" is 3 to 5 years depending on the company): one more year
+    // of leeway than for years written in the offer.
+    if (implied - experienceYears >= EXPERIENCE_GAP_EXCLUDE + 1) {
       return { pass: false, reason: `Intitulé trop senior pour ton expérience (${experienceYears} an${plural(experienceYears)}).` };
     }
     const required = offer.experience_min_years;
     if (required !== null && required - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
-      return { pass: false, reason: `${required} an${plural(required)} d'expérience demandé${plural(required)}, ${experienceYears} de ton côté.` };
+      return { pass: false, reason: gapReason(required, experienceYears) };
     }
     // "Expérience significative" without a number counts as a few years asked; never enough to exclude.
     const worded = required === null && offer.experience_level === "experienced" ? EXPERIENCED_YEARS : 0;
