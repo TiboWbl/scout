@@ -8,6 +8,8 @@ const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 // "Roadmaps" and "roadmap", "A/B tests" and "A/B test" are the same skill.
 const key = (s: string) => fold(s).split(" ").map((w) => (w.length > 3 ? w.replace(/s$/, "") : w)).join(" ");
 const QUALIFIERS = new Set(["produit", "product", "digital", "digitale", "professionnel", "professionnelle", "courant", "avance", "avancee", "solide", "efficace", "agile", "client", "utilisateur", "user", "management", "skill"]);
+// The name shown for a skill written several ways, when the most frequent spelling would puzzle.
+const DISPLAY: Record<string, string> = { "trade off": "Arbitrages (trade-offs)" };
 // Same skill, other spelling.
 const ALIASES: Record<string, string> = { ai: "ia", "intelligence artificielle": "ia", "artificial intelligence": "ia", kpi: "kpi", okrs: "okr", "adobe premiere pro": "premiere pro", "adobe premiere": "premiere pro", "adobe after effect": "after effect", "adobe photoshop": "photoshop", "adobe illustrator": "illustrator", "adobe indesign": "indesign", arbitrage: "trade off", "trade offs": "trade off", tradeoff: "trade off" };
 
@@ -70,7 +72,7 @@ export function topSkills(offers: { skills: Skill[] | null }[], cvText: string, 
   const byKind: Record<Skill["kind"], SkillStat[]> = { outil: [], methode: [], savoir_etre: [], langue: [] };
   for (const [k, g] of groups) {
     // The spelling used most often is shown.
-    const name = [...g.names.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const name = DISPLAY[k] ?? [...g.names.entries()].sort((a, b) => b[1] - a[1])[0][0];
     const count = g.offers.size;
     byKind[g.kind].push({ name, kind: g.kind, count, share: Math.round((100 * count) / Math.max(1, read.length)), inCv: fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `)) });
   }
@@ -146,7 +148,7 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
     const extracted = [...g.names.values()].reduce((a, b) => a + b, 0);
     if (!k.includes(" ") && !SHORT_SKILLS.has(k) && extracted / count < 0.06 && extracted < 15) continue;
     const kind = [...g.kinds.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    const name = [...g.names.entries()].filter(([n]) => (ALIASES[key(n)] ?? key(n)) === k).sort((a, b) => b[1] - a[1])[0]?.[0] ?? [...g.names.keys()][0];
+    const name = DISPLAY[k] ?? [...g.names.entries()].filter(([n]) => (ALIASES[key(n)] ?? key(n)) === k).sort((a, b) => b[1] - a[1])[0]?.[0] ?? [...g.names.keys()][0];
     // Cited only in the "a plus" part of the offer: wanted, not required.
     const has = (t: string | undefined) => forms.some((f) => (t ?? "").includes(` ${f} `));
     const bonus = split.length ? citing.filter((i) => has(split[i]?.bonus) && !has(split[i]?.required)).length : 0;
