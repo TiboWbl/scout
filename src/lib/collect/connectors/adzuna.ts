@@ -6,7 +6,7 @@ import { companyKey, htmlToText } from "../normalize";
 // Adzuna public API (France). Optional: skipped without credentials.
 const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/fr/search";
 // Free plan: about 250 calls a day. 8 searches × 5 pages × 3 runs a day stays under it.
-const MAX_PAGES = 5;
+const MAX_PAGES = 3;
 const MAX_DAYS_OLD = 60;
 
 // `country`: ISO code of the place, so engines that serve several countries search the right one.

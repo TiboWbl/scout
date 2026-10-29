@@ -23,7 +23,7 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   const criteria = Criteria.parse(inputs.criteria ?? {});
   if (criteria.targetRoles.length === 0) return null;
   const known = await snapshots(db, profileId);
-  const today = await computeMarket(set, criteria, { cvText: inputs.cvText, cvSkills: inputs.cvSkills, selection: inputs.selection });
+  const today = await computeMarket(set, criteria, { cvText: inputs.cvText, cvSkills: inputs.cvSkills, selection: inputs.selection, confirmed: inputs.confirmed });
 
   const rows = [{ profile_id: profileId, day: today.day, data: today }];
 
@@ -39,7 +39,7 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   for (const t of back) {
     const day = new Date(t).toISOString().slice(0, 10);
     if (days.has(day)) continue;
-    rows.push({ profile_id: profileId, day, data: await computeMarket(set, criteria, { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills }) });
+    rows.push({ profile_id: profileId, day, data: await computeMarket(set, criteria, { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed }) });
   }
   const { error } = await db.from("market_snapshots").upsert(rows, { onConflict: "profile_id,day" });
   if (error) throw error;

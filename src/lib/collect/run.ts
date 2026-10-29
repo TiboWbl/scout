@@ -15,8 +15,10 @@ import { companyKey, offerKey } from "./normalize";
 
 export type SourceReport = { source: string; seen: number; created: number; archived: number; error?: string };
 
-const MAX_GENERATED_QUERIES = 8;
-const MAX_FAVORITE_QUERIES = 25;
+// Adzuna's free plan allows about 250 calls a day over five collections: 10 searches of 3 pages and
+// 15 favourite companies (one page each) per collection.
+const MAX_GENERATED_QUERIES = 10;
+const MAX_FAVORITE_QUERIES = 15;
 const COLOR_BATCH = 150;
 const RETENTION_DAYS = 60;
 // Search engines never say when an offer is withdrawn: unseen for this long, it is archived.
@@ -112,7 +114,9 @@ async function loadBoards(db: SupabaseClient): Promise<(Board & { id: string })[
 // the coverage, and nothing is stored for places nobody is looking at (the free database is 500 MB).
 export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
   const { data } = await db.from("profiles").select("criteria, is_demo").not("onboarded_at", "is", null);
-  const counts = new Map<string, { q: SearchQuery; n: number }>();
+  // Each person's titles, their roles first: searched in turns, one per person, so no profile takes
+  // every search (ties used to go to whoever came first in the table).
+  const perPerson: SearchQuery[][] = [];
   const countries = new Set<string>();
   const sought: Criteria[] = [];
   for (const row of data ?? []) {
@@ -125,13 +129,19 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
     if (row.is_demo) continue;
     const place = c.zone.places.find((p) => p.kind !== "country") ?? c.zone.places[0] ?? null;
     const where = place?.label ?? null;
-    for (const what of [...c.targetRoles, ...c.titleVariants]) {
-      const key = `${what.trim().toLowerCase()}|${where ?? ""}`;
-      const prev = counts.get(key);
-      counts.set(key, { q: { what: what.trim(), where, country: place?.country ?? null }, n: (prev?.n ?? 0) + 1 });
+    perPerson.push([...c.targetRoles, ...c.titleVariants].map((what) => ({ what: what.trim(), where, country: place?.country ?? null })));
+  }
+  const queries: SearchQuery[] = [];
+  const seen = new Set<string>();
+  for (let round = 0; queries.length < MAX_GENERATED_QUERIES && perPerson.some((list) => list.length > round); round++) {
+    for (const list of perPerson) {
+      const q = list[round];
+      const key = q ? `${q.what.toLowerCase()}|${q.where ?? ""}` : "";
+      if (!q || seen.has(key) || queries.length >= MAX_GENERATED_QUERIES) continue;
+      seen.add(key);
+      queries.push(q);
     }
   }
-  const queries = [...counts.values()].sort((a, b) => b.n - a.n).slice(0, MAX_GENERATED_QUERIES).map((x) => x.q);
   // Favourite companies whose career page Scout cannot read: searched by name, so none is missed.
   const { data: favs } = await db.from("favorite_companies").select("company:companies(name, ats)");
   const favNames = [...new Set((favs ?? []).map((f) => f.company as unknown as { name: string; ats: string | null } | null).filter((c) => c && !c.ats).map((c) => c!.name))];

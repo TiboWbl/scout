@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 const MAX_BASE = 1500;
 // The way the figures are counted. Pictures counted another way are never compared with today's:
 // a change of method is not a change of the market.
-export const MARKET_METHOD = 2;
+export const MARKET_METHOD = 3;
 
 export type Range = { low: number; median: number; high: number; n: number };
 export type MarketSkill = SkillStat & { mine: number };
@@ -128,7 +128,7 @@ function range(values: number[]): Range | null {
 export async function computeMarket(
   set: MarketDataset,
   criteria: Criteria,
-  { at = new Date(), cvText = "", cvSkills = [], selection = [] }: { at?: Date; cvText?: string; cvSkills?: string[]; selection?: string[] } = {},
+  { at = new Date(), cvText = "", cvSkills = [], selection = [], confirmed = [] }: { at?: Date; cvText?: string; cvSkills?: string[]; selection?: string[]; confirmed?: string[] } = {},
 ): Promise<MarketData> {
   const t = at.getTime();
   const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
@@ -144,7 +144,10 @@ export async function computeMarket(
   // Only offers read in full count: an engine's 500-character excerpt would skew every figure.
   // The role itself: named in full by the title, or in part with the rest in the text ("Chef de projet"
   // saying "digital"); one shared word alone ("Designer") is another job.
-  const named = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && namesRole(r.title, texts.get(r.id) ?? "", roleOnly));
+  // Or a title close to the role that the model confirmed as the person's job ("Monteur audiovisuel",
+  // "Cadreur monteur" for a video editor): creative and trade titles vary far more than the variants listed.
+  const sure = new Set(confirmed);
+  const named = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && (namesRole(r.title, texts.get(r.id) ?? "", roleOnly) || sure.has(r.id)));
   // One posting, one count: the same text found twice (an engine's copy of the employer's page, the
   // same job posted twice) would weigh double in every share. The employer's own page is kept.
   const byText = new Map<string, Row>();
@@ -249,20 +252,23 @@ export async function profileInputs(db: SupabaseClient, profileId: string, { sel
   const summary = (p?.cv_summary ?? {}) as Record<string, unknown>;
   const cvText = ["skills", "roles", "highlights", "education", "languages"].flatMap((k) => (Array.isArray(summary[k]) ? (summary[k] as string[]) : [])).join(" · ");
   const selection: string[] = [];
+  // Offers the model judged a good match for the person: their role, confirmed on the missions.
+  const confirmed: string[] = [];
   for (let f = 0; withSelection; f += 1000) {
     const { data } = await db
       .from("offer_scores")
-      .select("offer_id, offer:offers!inner(archived_at)")
+      .select("offer_id, level, offer:offers!inner(archived_at)")
       .eq("user_id", profileId)
       .eq("criteria_version", p?.criteria_version ?? 0)
       .neq("level", "ecartee")
       .is("offer.archived_at", null)
       .range(f, f + 999);
     selection.push(...(data ?? []).map((r) => r.offer_id as string));
+    confirmed.push(...(data ?? []).filter((r) => r.level === "coeur" || r.level === "solide").map((r) => r.offer_id as string));
     if (!data || data.length < 1000) break;
   }
   // The first full day of collection for these roles (the person's own search brings their offers in).
   const changed = (p?.roles_changed_at ?? p?.onboarded_at) as string | null;
   const historyFrom = changed ? new Date(Date.parse(changed) + 86_400_000).toISOString().slice(0, 10) : null;
-  return { criteria: p?.criteria, historyFrom, cvText, cvSkills: Array.isArray(p?.cv_skills) ? (p!.cv_skills as string[]) : [], selection };
+  return { criteria: p?.criteria, historyFrom, cvText, cvSkills: Array.isArray(p?.cv_skills) ? (p!.cv_skills as string[]) : [], selection, confirmed };
 }
