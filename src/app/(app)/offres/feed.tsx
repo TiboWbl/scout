@@ -82,11 +82,15 @@ type Props = { sortHere?: boolean; items: FeedItem[]; openness: number; pending:
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
   // A fresh collection runs for a search the person just changed.
   collecting?: boolean;
+  // When the collection for a changed search was asked: says when its new offers should arrive.
+  collectingSince?: string | null;
   initialQuery?: string;
   // "Ma recherche", opened over the page by "Modifier ma recherche".
   searchEditor?: React.ReactNode };
 
-export function Feed({ sortHere = true, items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
+const hour = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+
+export function Feed({ collectingSince = null, sortHere = true, items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -266,7 +270,9 @@ export function Feed({ sortHere = true, items: initial, openness, pending, total
 
       {collecting && (
         <p className="mt-5 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm" role="status">
-          Scout va chercher les offres de ta recherche mise à jour sur toutes ses sources. Elles arriveront d&apos;ici une quinzaine de minutes : reviens un peu plus tard.
+          <span className="font-semibold">Ta recherche a changé : Scout va chercher de nouvelles offres sur toutes ses sources</span>
+          {collectingSince ? `, depuis ${hour(collectingSince)}. Elles arriveront vers ${hour(new Date(Date.parse(collectingSince) + 25 * 60_000).toISOString())}` : ""}.{" "}
+          En attendant, les offres qu&apos;il connaît déjà sont triées pour ta nouvelle recherche et s&apos;affichent ci-dessous au fur et à mesure : tu peux les parcourir.
         </p>
       )}
 

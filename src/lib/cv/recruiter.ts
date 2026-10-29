@@ -1,4 +1,4 @@
-import { hasKeyword } from "@/lib/cv/ats";
+import { ACTION_VERBS as ACTION_START, figuresIn, hasKeyword, strongLine } from "@/lib/cv/ats";
 import type { LlmProvider } from "@/lib/llm";
 
 // The recruiter's reading of a CV, for the role sought or one offer. Shared by the CV page and the
@@ -18,7 +18,7 @@ const RECRUITER_SYSTEM = `Tu es recruteur. Tu lis un CV (données personnelles r
 - "atouts" : 2 ou 3 objets {"point", "citation_cv"} : ce qui convaincrait un recruteur pour ce poste. "citation_cv" : un seul passage du CV qui le prouve à lui seul, recopié mot pour mot.
 - "manques" : 0 à 3 objets {"point", "citation_poste"} : ce que le poste attend et que le CV ne montre pas. Ne cite jamais un manque si le CV en parle. "citation_poste" : s'il y a une offre, les mots de l'offre qui le demandent, recopiés mot pour mot ; sinon, le mot-clé exact de la liste « demandé par les offres du métier ».
 - "personnaliser" : 2 ou 3 actions concrètes pour adapter ce CV à ce poste (quoi remonter, quel intitulé ou quels mots reprendre, quoi raccourcir), en une phrase chacune. N'invente rien sur la personne.
-- "lignes" : jusqu'à 3 lignes de missions du CV (jamais la formation ni les compétences) qui gagneraient le plus à être réécrites pour ce poste, en objets {"ligne", "proposition", "pourquoi"}. "ligne" : recopiée mot pour mot. "proposition" : toujours la ligne réécrite, au même temps que le reste du CV, avec un verbe d'action et un résultat ; n'invente aucun chiffre, écris [chiffre] là où la personne doit mettre le sien. "pourquoi" : une phrase. Liste vide si tout est déjà bon.
+- "lignes" : jusqu'à 3 lignes de missions du CV (jamais la formation ni les compétences) qui gagneraient le plus à être réécrites pour ce poste, en objets {"ligne", "proposition", "pourquoi"}. "ligne" : recopiée mot pour mot. "proposition" : toujours la ligne réécrite, au même temps que le reste du CV, qui commence par un verbe d'action, garde tous les chiffres et mots-clés de la ligne d'origine, et ne dépasse pas 35 mots ; n'invente aucun chiffre, écris [chiffre] là où la personne doit mettre le sien. Ne propose jamais une ligne qui commence déjà par un verbe d'action et contient déjà un résultat chiffré. "pourquoi" : une phrase. Liste vide si tout est déjà bon.
 Écris en français, en tutoyant la personne, sans tiret cadratin.`;
 
 export type Recruiter = { target: string; avis: string; atouts: { point: string; citation: string }[]; manques: { point: string; citation: string | null }[]; conseils: string[] };
@@ -58,10 +58,18 @@ export async function readAsRecruiter(
       .slice(0, 3),
     conseils: strings(read.personnaliser).map((c) => c.replace(/\*\*/g, "")).slice(0, 3),
   };
-  // A rewrite counts only if its line is really in the CV.
+  // A rewrite counts only if its line is really in the CV, the line can gain something (a line that
+  // already opens on a verb, shows a figure and stays short is left alone), and the rewrite loses
+  // nothing the grid counts: the verb first, every figure, every market keyword, a short sentence.
+  const kept = (line: string, proposal: string) => {
+    if (proposal.split(/\s+/).length > 35 || !ACTION_START.test(fold(proposal).replace(/^[^a-z]+/, ""))) return false;
+    const figures = figuresIn(line).map((f) => f.match(/\d+(?:[  .,]\d+)*/)?.[0] ?? f);
+    if (!figures.every((f) => proposal.includes(f))) return false;
+    return keywords.every((k) => !hasKeyword(fold(line), k) || hasKeyword(fold(proposal), k));
+  };
   const suggestions = objects(read.lignes)
     .filter((x): x is { ligne: string; proposition: string; pourquoi?: unknown } => typeof x.ligne === "string" && typeof x.proposition === "string" && x.ligne.length > 15)
-    .filter((x) => cv.includes(fold(x.ligne)))
+    .filter((x) => cv.includes(fold(x.ligne)) && !strongLine(x.ligne) && kept(x.ligne, x.proposition))
     .map((x) => ({ ligne: x.ligne, proposition: x.proposition, pourquoi: typeof x.pourquoi === "string" ? x.pourquoi : null }))
     .slice(0, 3);
   return { recruiter, suggestions };

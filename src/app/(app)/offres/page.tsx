@@ -39,5 +39,5 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
   // (the same work twice slowed the whole site), unless the search was just changed and is awaited.
   const ciSorting = Boolean(lastRun && now - new Date(lastRun.started_at).getTime() < 40 * 60_000);
   const searchChanged = Boolean(profile?.updated_at && now - new Date(profile.updated_at).getTime() < 60 * 60_000);
-  return <Feed {...data} sortHere={!ciSorting || searchChanged} collecting={collecting} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} searchEditor={<SearchEditor />} isAdmin={isAdminEmail(user!.email)} />;
+  return <Feed {...data} sortHere={!ciSorting || searchChanged} collecting={collecting} collectingSince={collecting ? (profile?.collect_requested_at ?? null) : null} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} searchEditor={<SearchEditor />} isAdmin={isAdminEmail(user!.email)} />;
 }

@@ -223,3 +223,26 @@ describe("une compétence précise dit la générale (MySQL est du SQL)", async 
     expect(k.good).toContain("« SQL (MySQL) »");
   });
 });
+
+describe("CV : chiffres et lignes à réécrire", async () => {
+  const { figuresIn, strongLine } = await import("@/lib/cv/ats");
+  const { readAsRecruiter } = await import("@/lib/cv/recruiter");
+  it("compte tous les chiffres d'une mission, sauf les années et les durées", () => {
+    expect(figuresIn("Atteint 300 000 vues et un NPS de 45, note 4,8/5, +15 % d'adoption")).toEqual(["300 000 vues", "45", "4,8/5", "+15 %"]);
+    expect(figuresIn("Stage de 6 mois en 2024")).toEqual([]);
+  });
+  it("une ligne déjà solide n'est jamais proposée à la réécriture", () => {
+    expect(strongLine("Piloté le lancement de 3 fonctionnalités, +15 % d'adoption")).toBe(true);
+    expect(strongLine("Participation au lancement de fonctionnalités")).toBe(false);
+  });
+  it("une réécriture qui ferait perdre un chiffre ou le verbe n'est pas proposée", async () => {
+    const text = "Expérience\nGestion du backlog pour 3 équipes\nPiloté le lancement de 3 fonctionnalités, +15 % d'adoption";
+    const llm = { json: async () => ({ avis: "", atouts: [], manques: [], personnaliser: [], lignes: [
+      { ligne: "Gestion du backlog pour 3 équipes", proposition: "Priorisé le backlog de plusieurs équipes", pourquoi: "" },
+      { ligne: "Gestion du backlog pour 3 équipes", proposition: "Priorisé le backlog de 3 équipes, livraisons [chiffre] % plus rapides", pourquoi: "" },
+      { ligne: "Piloté le lancement de 3 fonctionnalités, +15 % d'adoption", proposition: "Lancé 3 fonctionnalités", pourquoi: "" },
+    ] }) } as never;
+    const { suggestions } = await readAsRecruiter(llm, { text, redacted: text, roles: "Product Manager", experienceYears: 1, keywords: ["Backlog"], offer: null });
+    expect(suggestions.map((s) => s.proposition)).toEqual(["Priorisé le backlog de 3 équipes, livraisons [chiffre] % plus rapides"]);
+  });
+});

@@ -40,11 +40,31 @@ const LANGUAGES = /\b(langues?|languages?)\b/;
 const LANGUAGE_LEVEL = /\b(a1|a2|b1|b2|c1|c2|courant|bilingue|natif|native|maternelle|fluent|professionnel|intermediaire|intermediate|notions|scolaire|toeic|toefl|ielts|cambridge)\b/;
 
 // Read at the start of a mission line only: "crédit" or "créatif" inside a sentence is not an action.
-const ACTION_VERBS =
+export const ACTION_VERBS =
   /^(pilot|lanc|concu|concev|developp|cre[eé]|optimis|amelior|augment|redui|ger[eé]|dirig|coordonn|mis en place|mettre en place|deploy|analys|automatis|negoci|condui|realis|organis|livr|anim|defini|defin|construi|men[ée]|mener|redig|particip|contribu|encadr|form[eé]|former|assur|collabor|identifi|prioris|structur|recrut|conseill|accompagn|refond|migr|integr|test[eé]|mesur|mont[eé]|tourn[eé]|produi|garanti|support|fidelis|prospect|vend|sign[eé]|planifi|implement|supervis|elabor|etabli|instaur|initi|fond[eé]|cofond|transform|modernis|simplifi|standardis|document|present|trait[eé]|resolu|diagnostiq|install|configur|cod[eé]|programm|dessin|illustr|photographi|film|edit[eé]|publi|ecri|traduit|enseign|soign|administr|prepar|control|verifi|audit|evalu|etudi|interview|synthetis|negoc|piloter|lancer|concevoir|developper|creer|optimiser|ameliorer|gerer|coordonner|deployer|analyser|realiser|organiser|animer|definir|construire|rediger|accompagner|led|launched|built|designed|developed|improved|increased|reduced|managed|delivered|created|drove|owned|shipped|implemented|analy[sz]ed|coordinated|organi[sz]ed|conducted|wrote|produced|edited|filmed|negotiated|sold|trained|mentored|supported|defined|ran|grew|scaled|optimi[sz]ed|automated|migrated|redesigned|established|partnered|collaborated|presented|launch|lead|build|design|develop|manage|create|drive)\w*/;
 // Figures that show a result: percentages, money, multipliers, counts of people or things.
 const QUANTIFIED =
   /(?:[+−-]\s?)?\d+(?:[.,]\d+)?\s?(?:%|k€|m€|€|k\b|m\b|x\b|×|pts?\b|points?\b)|(?:\bx|×)\s?\d+\b|\b\d{1,3}(?:[ .,]?\d{3})*\+?\s(?:\w+\s)?(?:utilisateurs?|clients?|users?|personnes|people|entreprises|equipes?|developpeurs|devs|projets?|pays|ventes|leads|telechargements|downloads|membres|participants|collaborateurs|magasins|sites|produits|fonctionnalites|features|commandes|orders|transactions|abonnes|followers|visites|sessions|entretiens|interviews|tickets|candidats|partenaires|marches|langues|stakeholders|squads|sprints|releases|apps?)\b/gi;
+
+// The figures of a text that say a result: every number of a mission, as written ("300 000 vues",
+// "NPS de 45", "4,8/5", "+15 %"), except years and plain durations ("6 mois", "2 ans").
+export function figuresIn(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/(?:[+−-]\s?)?\d+(?:[  .,]\d+)*(?:\s?(?:%|k€|m€|€|k\b|m\b|x\b|×|\/\d+))?(?:\s(?:de\s)?[a-zà-ÿA-Z]{2,}(?![a-zà-ÿA-Z'’]))?/g)) {
+    const raw = m[0].trim();
+    const value = raw.match(/\d+(?:[  .,]\d+)*/)?.[0] ?? "";
+    const signed = /^[+−-]/.test(raw) || /%|€|x\b|×|\//.test(raw);
+    if (/^(19[5-9]\d|20[0-4]\d)$/.test(value.replace(/\s/g, "")) && !signed) continue;
+    if (!signed && /\s(mois|ans?|annees?|années?|semaines?|jours?|heures?|h)$/i.test(raw) && !/gagn|economis|économis|reduit|réduit|moins/i.test(text.slice(m.index ?? 0, (m.index ?? 0) + raw.length + 20))) continue;
+    if (!out.some((f) => f === raw)) out.push(raw);
+  }
+  return out;
+}
+
+// A mission line that already does its job: opens on an action verb, shows a figure, stays short.
+export function strongLine(line: string): boolean {
+  return ACTION_VERBS.test(fold(line).replace(/^[^a-z]+/, "")) && figuresIn(line).length > 0 && line.split(/\s+/).length <= 35;
+}
 
 function check(ok: boolean, label: string, max: number, fix: string, points = ok ? max : 0): Check {
   return { ok, label, points, max, ...(ok ? {} : { fix }) };
@@ -148,11 +168,14 @@ export function scoreCv(input: CvInput, roleKeywords: RoleContext): AtsResult {
   const missions = experience.filter((l) => l.split(/\s+/).length >= 4 && !/\b(19|20)\d{2}\b.{0,12}(\b(19|20)\d{2}\b|aujourd|present|actuel|now|today)/i.test(l));
   // Mission lines that open on an action verb, each counted once.
   const verbs = missions.filter((l) => ACTION_VERBS.test(fold(l).replace(/^[^a-z]+/, ""))).length;
-  const numbers = new Set((fold(text).match(QUANTIFIED) ?? []).map((m) => m.trim())).size;
+  const figures = figuresIn(missions.join("\n"));
+  // Also the figures written elsewhere in the expected forms (a summary at the top: "+30 % de CA").
+  for (const m of fold(text).match(QUANTIFIED) ?? []) if (!figures.some((f) => fold(f).includes(m.trim()))) figures.push(m.trim());
+  const numbers = figures.length;
   const longLines = lines.filter((l) => l.split(/\s+/).length > 35).length;
   const contenu: Check[] = [
     check(verbs >= 8, "Verbes d'action", 10, `Commence chaque mission par un verbe d'action (piloté, lancé, conçu, réduit…) : ${verbs} mission${verbs > 1 ? "s" : ""} sur ${missions.length} commence${verbs > 1 ? "nt" : ""} ainsi, vise au moins 8.`, Math.min(10, Math.round((10 * verbs) / 8))),
-    check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats : combien, combien de fois, quel effet (+30 %, 2 000 personnes, 15 projets livrés, un budget de 50 k€, 3 jours gagnés). ${numbers} trouvé${numbers > 1 ? "s" : ""}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
+    check(numbers >= 4, "Résultats chiffrés", 10, `Chiffre tes résultats : combien, combien de fois, quel effet (+30 %, 2 000 personnes, 15 projets livrés, un budget de 50 k€, 3 jours gagnés). ${numbers ? `${numbers} trouvé${numbers > 1 ? "s" : ""} (${figures.slice(0, 4).join(", ")}${numbers > 4 ? "…" : ""})` : "aucun trouvé dans tes missions"}, vise au moins 4.`, Math.min(10, Math.round((10 * numbers) / 4))),
     check(longLines <= 2, "Phrases courtes", 5, "Certaines lignes dépassent 35 mots : coupe-les en puces d'une ligne, une idée par puce.", longLines <= 2 ? 5 : longLines <= 5 ? 2 : 0),
   ];
 
