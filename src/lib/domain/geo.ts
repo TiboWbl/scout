@@ -125,9 +125,24 @@ function qualifiedCountry(segment: string, n: string): string | undefined {
   return findCountry(segment) ?? undefined;
 }
 
+// Overseas France is not mainland France: an offer in La Réunion is not one in Paris ("Saint-Denis,
+// Reunion" is not Saint-Denis 93). Each territory is its own place, by name or postcode (971 to 976).
+const OVERSEAS: [RegExp, string][] = [
+  // Towns named only there (never "Saint-Paul" or "Saint-Pierre", shared with the mainland).
+  [/\b(la )?reunion\b|\b974\d\d\b|\b(sainte clotilde|le tampon|saint andre de la reunion|saint benoit de la reunion|la possession|sainte suzanne de la reunion|le port de la reunion)\b/, "RE"],
+  [/\bmartinique\b|\b972\d\d\b|\b(fort de france|schoelcher|le lamentin)\b/, "MQ"],
+  [/\bguadeloupe\b|\b971\d\d\b|\b(pointe a pitre|les abymes|baie mahault|le gosier)\b/, "GP"],
+  [/\bguyane( francaise)?\b|\bfrench guiana\b|\b973\d\d\b|\b(cayenne|kourou|matoury|saint laurent du maroni)\b/, "GF"],
+  [/\bmayotte\b|\b976\d\d\b|\b(mamoudzou|dzaoudzi)\b/, "YT"],
+  [/\bnouvelle caledonie\b|\bnew caledonia\b|\bnoumea\b/, "NC"],
+  [/\bpolynesie( francaise)?\b|\bfrench polynesia\b|\btahiti\b|\bpapeete\b/, "PF"],
+];
+
 function parseSegment(segment: string): Place | null {
   const n = flat(segment);
   if (!n) return null;
+  // "Union européenne" is not La Réunion.
+  for (const [re, code] of OVERSEAS) if (re.test(n) && !/\bunion europeenne\b/.test(n)) return { country: code };
   for (const [city, [country, region]] of CITY_INDEX) {
     if (new RegExp(`(^|[^a-z])${city}($|[^a-z])`).test(n)) {
       const name = city.replace(/(^|[\s-])\S/g, (m) => m.toUpperCase());
@@ -136,7 +151,8 @@ function parseSegment(segment: string): Place | null {
       return { city: name, country, region };
     }
   }
-  const country = findCountry(segment);
+  // A US state after the town ("York, SC 29745"): its ZIP code is not a French postcode.
+  const country = qualifiedCountry(segment, n);
   if (!country || country === "FR") {
     // A French postcode names its département, hence its region ("92130 Issy", "59000 Lille").
     const postcode = /\b(\d{5})\b/.exec(segment)?.[1];

@@ -141,6 +141,8 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Préfiltre et scoring
 
+- **Lieux** : l'outre-mer est un territoire à part, jamais la France métropolitaine (La Réunion, Martinique, Guadeloupe, Guyane, Mayotte, Nouvelle-Calédonie, Polynésie : par leur nom, leurs codes postaux 971 à 976 ou leurs villes sans homonyme en métropole, comme Sainte-Clotilde ou Fort-de-France ; « Saint-Denis, Reunion » n'est pas Saint-Denis 93). Un État américain après la ville (« York, SC 29745 ») l'emporte sur un code postal : 29745 n'est pas le Finistère. Le réglage « hors de ma zone : seulement si exceptionnelle » accepte une autre région du même pays, jamais un autre pays ni l'outre-mer (« Hors de ta zone, dans un autre pays ou territoire (La Réunion) ») ; « oui » accepte tout.
+
 - **Portes** par utilisateur, déterministes, appliquées dans cet ordre de lecture. Une offre qui en viole une est écartée (ou mise à part pour la zone), jamais compensée par le reste :
   1. **Zone**, avec la section « Hors de ta zone » selon le réglage.
   2. **Contrat.**

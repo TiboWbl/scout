@@ -51,6 +51,15 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
   const zone = zoneVerdict(offer, criteria.zone);
   if (zone === "out") {
     if (criteria.outOfZone === "never") return { pass: false, reason: "Hors de ta zone de recherche." };
+    // "Exceptionally elsewhere" means another region, never another country or overseas territory: an
+    // offer in La Réunion or in the United States is not an exceptional offer near Paris.
+    const zoneCountries = new Set(criteria.zone.places.map((p) => p.country));
+    const countries = offer.places.map((p) => p.country).filter((c): c is string => Boolean(c));
+    if (criteria.outOfZone === "exceptional" && countries.length > 0 && !countries.some((c) => zoneCountries.has(c))) {
+      const names = new Intl.DisplayNames(["fr"], { type: "region" });
+      const where = [...new Set(countries)].map((c) => names.of(c) ?? c).join(", ");
+      return { pass: false, reason: `Hors de ta zone, dans un autre pays ou territoire (${where}).` };
+    }
     if (criteria.outOfZone === "exceptional") outOfZone = true;
   } else if (zone === "unknown") {
     notes.push("Lieu à vérifier sur l'annonce.");

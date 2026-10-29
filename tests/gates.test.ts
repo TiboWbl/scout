@@ -60,8 +60,14 @@ describe("réglage « Offres hors de ma zone »", () => {
   it("jamais : écartée", () => {
     expect(prefilter(ny, { ...PROFILE, outOfZone: "never" }, 1).pass).toBe(false);
   });
-  it("seulement si exceptionnelle : gardée mais marquée hors zone", () => {
-    expect(prefilter(ny, { ...PROFILE, outOfZone: "exceptional" }, 1)).toMatchObject({ pass: true, outOfZone: true });
+  it("seulement si exceptionnelle : une autre région est gardée mais marquée hors zone", () => {
+    const lyon = { title: "Product Manager", companyName: "X", contract: "cdi", experience_min_years: null, ...offerAt("Lyon") };
+    expect(prefilter(lyon, { ...PROFILE, outOfZone: "exceptional" }, 1)).toMatchObject({ pass: true, outOfZone: true });
+  });
+  it("seulement si exceptionnelle : un autre pays ou l'outre-mer est écarté", () => {
+    expect(prefilter(ny, { ...PROFILE, outOfZone: "exceptional" }, 1)).toMatchObject({ pass: false, reason: "Hors de ta zone, dans un autre pays ou territoire (États-Unis)." });
+    const reunion = { title: "Product Manager", companyName: "X", contract: "cdi", experience_min_years: null, ...offerAt("SAINTE-CLOTILDE, NON SPÉCIFIÉ, FRANCE") };
+    expect(prefilter(reunion, { ...PROFILE, outOfZone: "exceptional" }, 1).pass).toBe(false);
   });
   it("oui : traitée normalement", () => {
     expect(prefilter(ny, { ...PROFILE, outOfZone: "yes" }, 1)).toMatchObject({ pass: true, outOfZone: false });
