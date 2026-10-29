@@ -142,6 +142,7 @@ const CONTRACT_NAMES: [string, string][] = [
   ["alternance", "Alternance"],
   ["cdd", "CDD"],
   ["freelance", "Freelance"],
+  ["vie", "V.I.E."],
 ];
 
 // How the role's offers are offered: useful to decide whether to widen the contracts sought.
