@@ -151,17 +151,20 @@ export function Feed({ collectingSince = null, items: initial, openness, total, 
     return () => clearTimeout(t);
   }, [toast]);
 
-  const { main, outOfZone, elsewhere, set_aside } = useMemo(() => {
+  const { main, outOfZone, elsewhere, set_aside, waiting } = useMemo(() => {
     // Within a level, the newest first (applying early matters); fit breaks ties.
     const day = (i: FeedItem) => Math.floor(new Date(i.offer.published_at ?? i.offer.first_seen_at).getTime() / 86_400_000);
     const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || day(b) - day(a) || rank(b, openness) - rank(a, openness);
-    const visible = items.filter((i) => !i.dismissed);
+    // The previous search's selection, while the new one is sorted: shown apart, never counted, so the
+    // counts only grow as new verdicts land.
+    const visible = items.filter((i) => !i.dismissed && !i.previous);
     return {
+      waiting: items.filter((i) => i.previous && !i.dismissed && i.level !== "ecartee").sort(byRank),
       main: visible.filter((i) => i.level !== "ecartee" && !i.out_of_zone).sort(byRank),
       outOfZone: visible.filter((i) => i.level !== "ecartee" && i.out_of_zone && isExceptional(i)).sort(byRank),
       // A search looks everywhere: an offer outside the zone is still the one the person may be looking for.
       elsewhere: visible.filter((i) => i.level !== "ecartee" && i.out_of_zone).sort(byRank),
-      set_aside: items.filter((i) => i.dismissed || i.level === "ecartee" || (i.out_of_zone && !isExceptional(i))),
+      set_aside: items.filter((i) => !i.previous && (i.dismissed || i.level === "ecartee" || (i.out_of_zone && !isExceptional(i)))),
     };
   }, [items, openness]);
 
@@ -267,8 +270,7 @@ export function Feed({ collectingSince = null, items: initial, openness, total, 
         {progress
           ? (() => {
               // While sorting, the count is not final yet: said so, with what still comes from the previous search.
-              const previous = main.filter((i) => i.previous).length;
-              return `Tri en cours : ${main.length} offre${main.length > 1 ? "s" : ""} pour l'instant${previous ? `, dont ${previous} de ta recherche précédente` : ""}. Le nombre bouge jusqu'à la fin du tri.`;
+              return `Tri en cours : ${main.length} offre${main.length > 1 ? "s" : ""} déjà retenue${main.length > 1 ? "s" : ""} pour ta recherche, et d'autres arrivent.${waiting.length ? ` En attendant, ta sélection précédente reste plus bas.` : ""}`;
             })()
           : main.length - staleCount > 0
             ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
@@ -363,6 +365,17 @@ export function Feed({ collectingSince = null, items: initial, openness, total, 
             ))}
           </div>
           {shown.length > drawn && <MoreOnScroll onMore={drawMore} />}
+          {progress && waiting.filter(matches).length > 0 && shown.length <= drawn && (
+            <section className="mt-10">
+              <h2 className="font-display text-xl font-bold">En attendant : ta sélection précédente · {waiting.filter(matches).length}</h2>
+              <p className="mb-4 mt-1 text-sm text-muted">Ces offres correspondaient à ta recherche d&apos;avant. Chacune quitte cette liste dès que Scout l&apos;a relue pour ta nouvelle recherche.</p>
+              <div className="grid grid-cols-1 gap-3.5 opacity-80 sm:grid-cols-2 2xl:grid-cols-3">
+                {waiting.filter(matches).slice(0, 60).map((item) => (
+                  <OfferCard key={item.offer.id} item={item} favorite={favoriteIds.has(item.offer.company.id)} selected={item.offer.id === openId} {...handlers(item)} />
+                ))}
+              </div>
+            </section>
+          )}
           {hasOffers && shown.length === 0 && !progress && (
             q ? (
               <p className="rounded-2xl bg-surface p-6 text-muted">
