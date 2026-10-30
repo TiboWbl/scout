@@ -25,3 +25,12 @@ describe("V.I.E.", () => {
     expect(keep(parseLocation("Singapore").places, "onsite", "Product Manager")).toBe(false);
   });
 });
+
+describe("V.I.E. et séniorité", async () => {
+  const { titleSeniorityYears } = await import("@/lib/domain/signals");
+  it("le « V » de V.I.E n'est pas le niveau V", () => {
+    expect(titleSeniorityYears("V.I.E - Structural Engineer")).toBe(0);
+    expect(titleSeniorityYears("Project Engineer (V.I.E Contract)")).toBe(0);
+    expect(titleSeniorityYears("Software Engineer V")).toBe(5);
+  });
+});

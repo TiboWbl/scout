@@ -166,7 +166,8 @@ export function experienceText(min: number | null, max: number | null, level: Ex
 
 // Minimum experience an intitulé implies, used only as a coarse, safe gate.
 export function titleSeniorityYears(title: string): number {
-  const n = norm(title);
+  // "V.I.E" is a contract, not the level V ("Engineer V").
+  const n = norm(title.replace(/V\.I\.E\.?|\bVIE\b/g, " "));
   if (/\b(vp|vice[- ]president|chief|cpo|cto|director|directeur|directrice|head of|head)\b/.test(n)) return 8;
   if (/\b(principal|staff|group product manager)\b/.test(n)) return 7;
   // People-management roles need experience whatever the field.

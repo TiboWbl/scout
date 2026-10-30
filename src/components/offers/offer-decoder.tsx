@@ -21,7 +21,7 @@ export function OfferDecoder({ offer, description }: { offer: FeedOffer; descrip
   if (offer.repost_count && offer.reposted_at && offer.published_at && Math.abs(Date.parse(offer.published_at) - Date.parse(offer.reposted_at)) <= 3 * DAY)
     lines.push({ title: "Republiée", text: `Retirée puis remise en ligne le ${date(offer.reposted_at)} : le recrutement continue.` });
   if (age >= 90)
-    lines.push({ title: "Publiée il y a plus de 3 mois", text: "Il peut s'agir d'une annonce permanente, ouverte en continu pour recevoir des candidatures. Vérifie auprès de l'entreprise qu'un poste est vraiment à pourvoir." });
+    lines.push({ title: "Publiée il y a plus de 3 mois", text: "Il peut s'agir d'une annonce permanente, ouverte en continu pour recevoir des candidatures. Demande à l'entreprise si un poste est à pourvoir." });
   else if (age >= 30)
     lines.push({ title: `En ligne depuis ${age >= 60 ? "2 mois" : `${age} jours`}`, text: "Le recrutement dure, ou l'annonce n'a pas été retirée. Vérifie qu'elle est toujours ouverte avant d'y passer du temps." });
 

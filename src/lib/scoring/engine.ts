@@ -117,7 +117,10 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   for (const p of passed) {
     const rel = titleRelevance(p.offer.title, criteria);
     // A favourite company's offers are always read: a good role there may carry an unexpected title.
-    if (rel >= MIN_TITLE_RELEVANCE || (favoriteIds.has(p.offer.company_id) && p.offer.has_description)) candidates.push({ ...p, rel: Math.max(rel, FAVORITE_RELEVANCE), titleMatch: rel >= MIN_TITLE_RELEVANCE });
+    // A V.I.E. sought is read whatever its title: they are few, and a nearby role (Project Manager for a
+    // Product Manager) is often the way in.
+    const vieSought = p.offer.contract === "vie" && criteria.contracts.includes("vie");
+    if (rel >= MIN_TITLE_RELEVANCE || vieSought || (favoriteIds.has(p.offer.company_id) && p.offer.has_description)) candidates.push({ ...p, rel: Math.max(rel, FAVORITE_RELEVANCE), titleMatch: rel >= MIN_TITLE_RELEVANCE });
     else
       gateRows.push({
         ...base,

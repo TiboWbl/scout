@@ -180,8 +180,32 @@ export function CvCheck({ history, offers, initialOfferId, demo = false, marketK
   );
 }
 
+export const READY_SCORE = 88;
+
+// A section shown open, or folded away when the CV is ready: optional, never presented as a fix.
+function Fold({ ready, title, children }: { ready: boolean; title: string; children: React.ReactNode }) {
+  if (!ready)
+    return (
+      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
+        <h2 className="font-display text-xl font-bold">{title}</h2>
+        {children}
+      </section>
+    );
+  return (
+    <details className="group rounded-[22px] border border-line bg-surface p-5 md:p-6">
+      <summary className="cursor-pointer list-none font-display text-lg font-bold text-muted marker:hidden">
+        {title} <span className="text-[13px] font-normal">· facultatif</span>
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: Analysis; pdfUrl: string | null; marketKeywords?: string[] }) {
   const { result, suggestions, comparison, recruiter, text } = analysis;
+  // A CV can be finished: past this score, what is left is optional fine-tuning, folded away, so the
+  // person stops rewriting it every day.
+  const ready = result.total >= READY_SCORE;
   // The role's keywords are Mon marché's twelve skills: an analysis checked against another list says
   // so, instead of disagreeing with Mon marché.
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((k) => b.some((x) => x.toLowerCase() === k.toLowerCase()));
@@ -219,10 +243,9 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
       {(() => {
         // The verdict first: a 90/100 CV is a very good CV, and the rest of the page is fine-tuning.
         const missing = result.categories.flatMap((c) => c.checks).filter((k) => k.points < k.max).sort((a, b) => b.max - b.points - (a.max - a.points));
-        const verdict =
-          result.total >= 90
-            ? "Très bon CV : il se lit parfaitement par un logiciel de recrutement et va droit au but. Ce qui reste, ce sont des réglages fins."
-            : result.total >= 75
+        const verdict = ready
+          ? "Ton CV est prêt. Les logiciels de recrutement le lisent sans erreur et il va droit au but : ne le retouche plus chaque jour. Pour une offre qui compte, adapte-le avec « Adapter mon CV », dans le détail de l'offre."
+          : result.total >= 75
               ? "Bon CV : quelques points à reprendre pour qu'il soit bien lu par les logiciels de recrutement et retienne l'attention."
               : result.total >= 60
                 ? "CV correct, mais plusieurs points gênent sa lecture par un logiciel ou un recruteur : commence par ceux qui rapportent le plus."
@@ -237,7 +260,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
                 {recruiter.avis}
               </p>
             )}
-            {missing.length > 0 && (
+            {missing.length > 0 && !ready && (
               <>
                 <h3 className="mt-4 text-[13px] font-semibold text-muted">Ce qui rapporte le plus</h3>
                 <ol className="mt-2 space-y-1.5 text-[14.5px]">
@@ -278,8 +301,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
       })()}
 
       {result.categories.some((c) => c.checks.some((k) => !k.ok)) && (
-      <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-        <h2 className="font-display text-xl font-bold">Test ATS : ce qui te fait perdre des points</h2>
+      <Fold ready={ready} title={ready ? "Réglages facultatifs du test ATS" : "Test ATS : ce qui te fait perdre des points"}>
         <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
           {result.categories.filter((c) => c.checks.some((k) => !k.ok)).map((c) => (
             <div key={c.key}>
@@ -309,7 +331,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
             </div>
           ))}
         </div>
-      </section>
+      </Fold>
 
       )}
 
@@ -395,8 +417,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
       )}
 
       {suggestions.length > 0 && (
-        <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
-          <h2 className="font-display text-xl font-bold">Lignes à renforcer</h2>
+      <Fold ready={ready} title={ready ? "Lignes que tu pourrais encore affiner" : "Lignes à renforcer"}>
           <ul className="mt-4 space-y-4">
             {suggestions.map((s) => (
               <li key={s.ligne} className="text-[14px]">
@@ -409,7 +430,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
             ))}
           </ul>
           <p className="mt-3 text-[13px] text-muted">Remplace [chiffre] par tes vrais résultats.</p>
-        </section>
+      </Fold>
       )}
 
       {text !== null && (
