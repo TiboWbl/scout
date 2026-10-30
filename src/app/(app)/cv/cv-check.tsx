@@ -182,8 +182,9 @@ export function CvCheck({ history, offers, initialOfferId, demo = false, marketK
 
 export const READY_SCORE = 88;
 
-// A section shown open, or folded away when the CV is ready: optional, never presented as a fix.
-function Fold({ ready, title, children }: { ready: boolean; title: string; children: React.ReactNode }) {
+// A section shown open, or folded away when the CV is ready: optional, never presented as a fix. Folded,
+// it reads as a button that says what it holds.
+function Fold({ ready, title, detail, children }: { ready: boolean; title: string; detail: string; children: React.ReactNode }) {
   if (!ready)
     return (
       <section className="rounded-[22px] border border-line bg-surface p-5 md:p-6">
@@ -192,11 +193,21 @@ function Fold({ ready, title, children }: { ready: boolean; title: string; child
       </section>
     );
   return (
-    <details className="group rounded-[22px] border border-line bg-surface p-5 md:p-6">
-      <summary className="cursor-pointer list-none font-display text-lg font-bold text-muted marker:hidden">
-        {title} <span className="text-[13px] font-normal">· facultatif</span>
+    <details className="group rounded-[22px] border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-[22px] p-5 hover:bg-pill-solid md:px-6 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-lg font-bold">{title}</span>
+          <span className="block text-[13.5px] text-muted">{detail}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-pill-solid px-3 py-1.5 text-[13px] font-semibold group-hover:bg-surface">
+          <span className="group-open:hidden">Voir</span>
+          <span className="hidden group-open:inline">Masquer</span>
+          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180">
+            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </summary>
-      {children}
+      <div className="px-5 pb-5 md:px-6 md:pb-6">{children}</div>
     </details>
   );
 }
@@ -301,7 +312,15 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
       })()}
 
       {result.categories.some((c) => c.checks.some((k) => !k.ok)) && (
-      <Fold ready={ready} title={ready ? "Réglages facultatifs du test ATS" : "Test ATS : ce qui te fait perdre des points"}>
+      <Fold
+        ready={ready}
+        title={ready ? "Réglages facultatifs" : "Test ATS : ce qui te fait perdre des points"}
+        detail={(() => {
+          const open = result.categories.flatMap((c) => c.checks).filter((k) => !k.ok);
+          const points = open.reduce((n, k) => n + k.max - k.points, 0);
+          return `${open.length} réglage${open.length > 1 ? "s" : ""} · jusqu'à ${points} point${points > 1 ? "s" : ""} de plus, si c'est vrai pour toi`;
+        })()}
+      >
         <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
           {result.categories.filter((c) => c.checks.some((k) => !k.ok)).map((c) => (
             <div key={c.key}>
@@ -417,7 +436,7 @@ export function Results({ analysis, pdfUrl, marketKeywords = [] }: { analysis: A
       )}
 
       {suggestions.length > 0 && (
-      <Fold ready={ready} title={ready ? "Lignes que tu pourrais encore affiner" : "Lignes à renforcer"}>
+      <Fold ready={ready} title={ready ? "Lignes que tu pourrais encore affiner" : "Lignes à renforcer"} detail={`${suggestions.length} proposition${suggestions.length > 1 ? "s" : ""} de réécriture, à prendre ou à laisser`}>
           <ul className="mt-4 space-y-4">
             {suggestions.map((s) => (
               <li key={s.ligne} className="text-[14px]">
