@@ -273,7 +273,7 @@ export function profileBrief(criteria: Criteria, cv: CvSummary | null, experienc
     // A V.I.E. is abroad by definition: its country must never count against it.
     ...(criteria.contracts.includes("vie")
       ? {
-          vie: "La personne cherche aussi un V.I.E. Un V.I.E. se déroule à l'étranger : son pays n'est jamais un défaut. Un V.I.E. dans un autre métier que ceux visés n'est retenu (Tremplin) que s'il remplit deux conditions : la personne a de vrais arguments pour être prise (une expérience, une compétence ou une formation de son profil que le poste demande), et le poste la rapproche des métiers visés (compétences, secteur ou responsabilités qu'elle pourra faire valoir ensuite). Dans « pourquoi », donne ces deux arguments, concrètement. Un V.I.E. sans lien avec son parcours (ingénierie, chimie, finance pure…) est écarté.",
+          vie: "La personne cherche aussi un V.I.E. Un V.I.E. se déroule à l'étranger : son pays n'est jamais un défaut. Un V.I.E. dans un autre métier que ceux visés n'est retenu (Tremplin) que s'il remplit deux conditions : la personne a de vrais arguments pour être prise (une expérience, une compétence ou une formation de son profil que le poste demande), et le poste la rapproche des métiers visés (compétences, secteur ou responsabilités qu'elle pourra faire valoir ensuite). Dans « pourquoi », donne ces deux arguments, concrètement. Sa formation compte comme un argument (un diplôme d'ingénieur rend crédible un V.I.E. d'ingénieur généraliste, de projet ou technico-commercial). Un V.I.E. sans aucun lien avec son expérience, ses compétences ni sa formation est écarté.",
         }
       : {}),
     experience_annees: experienceYears,

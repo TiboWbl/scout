@@ -91,19 +91,17 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       .order("first_seen_at", { ascending: false })
       .range(f, t) as unknown as PromiseLike<{ data: LightOffer[] | null; error: unknown }>,
   );
-  // V.I.E. set aside by the title gates of an earlier rule (read as "level V", or a title far from the
-  // role) are read again for someone who seeks one: every V.I.E. now reaches the model.
+  // V.I.E. judged under earlier rules (read as "level V", a title far from the role, another job judged
+  // without the person's education) are read again for someone who seeks one.
   if (criteria.contracts.includes("vie")) {
     const { data: stale } = await db
       .from("offer_scores")
       .select("offer_id, offer:offers!inner(contract)")
       .eq("user_id", userId)
       .eq("criteria_version", version)
-      .eq("scored_by", "prefilter")
       .eq("offer.contract", "vie")
-      // Verdicts given before the fix only: a truly senior V.I.E. set aside again stays set aside.
-      .lt("created_at", "2026-10-30T10:10:00Z")
-      .or("excluded_reason.like.L'intitulé ne correspond%,excluded_reason.like.Intitulé trop senior%");
+      // Verdicts given before the fix only: a V.I.E. judged again keeps its new verdict.
+      .lt("created_at", "2026-10-30T09:44:00Z");
     for (const r of stale ?? []) scored.delete(r.offer_id as string);
   }
   const unscored = offers.filter((o) => !scored.has(o.id));
@@ -113,9 +111,9 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     return { scoredNow: 0, remaining: 0, total: offers.length };
   }
 
-  const base = { user_id: userId, criteria_version: version };
-  // When a gate verdict is given (an upsert keeps the first date otherwise).
+  // When a verdict is given (an upsert keeps the first date otherwise).
   const now = new Date().toISOString();
+  const base = { user_id: userId, criteria_version: version, created_at: now };
   const gateRows: Record<string, unknown>[] = [];
   const { data: favoriteRows } = await db.from("favorite_companies").select("company_id, company:companies(name)").eq("user_id", userId);
   const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.company_id as string));
@@ -125,7 +123,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   for (const offer of unscored) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
     if (gate.pass) passed.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
-    else gateRows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter", created_at: now });
+    else gateRows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
 
   // Only offers whose title is close to a role sought or a bridge reach the LLM; the others are
@@ -145,7 +143,6 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         level: "ecartee",
         excluded_reason: "L'intitulé ne correspond à aucun de tes métiers ni de tes passerelles.",
         scored_by: "prefilter",
-        created_at: now,
       });
   }
   // Judgements made under the same key (an earlier version differing only by zone or openness) are reused.
