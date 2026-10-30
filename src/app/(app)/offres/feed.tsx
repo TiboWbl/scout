@@ -12,7 +12,7 @@ import { OfferCard } from "@/components/offers/offer-card";
 import { OfferPanel } from "@/components/offers/offer-panel";
 import { CompanyLogo } from "@/components/company-logo";
 import { EditSearchButton, SearchPanel } from "@/components/search-panel";
-import { SortingBanner, useSorting } from "@/components/sorting-progress";
+import { SortingBanner, useSortingProgress } from "@/components/sorting-progress";
 import { EXCLUDED_PAGE, loadExcludedPage } from "@/lib/views/excluded";
 import { haystack, matchesSearch } from "@/lib/search";
 
@@ -76,7 +76,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   );
 }
 
-type Props = { sortHere?: boolean; items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
+type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
   // Public demo: everything works in the session, nothing is saved, no sorting is started.
   demo?: boolean;
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
@@ -90,7 +90,7 @@ type Props = { sortHere?: boolean; items: FeedItem[]; openness: number; pending:
 
 const hour = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
-export function Feed({ collectingSince = null, sortHere = true, items: initial, openness, pending, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
+export function Feed({ collectingSince = null, items: initial, openness, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -128,7 +128,8 @@ export function Feed({ collectingSince = null, sortHere = true, items: initial, 
   const [applying, setApplying] = useState<FeedItem | null>(null);
   const [askApplied, setAskApplied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const progress = useSorting(pending, !demo && sortHere);
+  // The sort runs across the whole app (see SortingProvider); the demo has none.
+  const progress = useSortingProgress();
 
   // Back on the tab after opening an offer: ask, once, whether the person applied.
   useEffect(() => {
@@ -263,9 +264,15 @@ export function Feed({ collectingSince = null, sortHere = true, items: initial, 
     <div className="px-1 pb-16 pt-3 md:px-2">
       <h1 className="font-display text-4xl font-extrabold tracking-tight md:text-5xl">Offres</h1>
       <p className="mt-2 text-[15px] text-muted">
-        {main.length - staleCount > 0
-          ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
-          : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
+        {progress
+          ? (() => {
+              // While sorting, the count is not final yet: said so, with what still comes from the previous search.
+              const previous = main.filter((i) => i.previous).length;
+              return `Tri en cours : ${main.length} offre${main.length > 1 ? "s" : ""} pour l'instant${previous ? `, dont ${previous} de ta recherche précédente` : ""}. Le nombre bouge jusqu'à la fin du tri.`;
+            })()
+          : main.length - staleCount > 0
+            ? `${main.length - staleCount} offre${main.length - staleCount > 1 ? "s" : ""} pour toi, par niveau, les plus récentes d'abord.`
+            : "Ta sélection apparaît ici dès que des offres correspondent à ta recherche."}
       </p>
 
       {collecting && (

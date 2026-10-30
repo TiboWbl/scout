@@ -15,7 +15,7 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
   const { supabase, user } = await getUser();
   const [data, { data: profile }, { data: lastRun }] = await Promise.all([
     loadFeed(supabase, user!.id),
-    supabase.from("profiles").select("collect_requested_at, updated_at").eq("id", user!.id).single(),
+    supabase.from("profiles").select("collect_requested_at").eq("id", user!.id).single(),
     // Only the time of the latest collection (shared, no personal data).
     createAdminClient().from("collection_runs").select("started_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -35,9 +35,5 @@ export default async function OffresPage({ searchParams }: { searchParams: Promi
       if (await requestCollection()) await createAdminClient().from("profiles").update({ collect_requested_at: new Date().toISOString() }).eq("id", userId);
     });
   }
-  // A collection that just ran sorts everyone's new offers itself: the visit does not do it a second time
-  // (the same work twice slowed the whole site), unless the search was just changed and is awaited.
-  const ciSorting = Boolean(lastRun && now - new Date(lastRun.started_at).getTime() < 40 * 60_000);
-  const searchChanged = Boolean(profile?.updated_at && now - new Date(profile.updated_at).getTime() < 60 * 60_000);
-  return <Feed {...data} sortHere={!ciSorting || searchChanged} collecting={collecting} collectingSince={collecting ? (profile?.collect_requested_at ?? null) : null} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} searchEditor={<SearchEditor />} isAdmin={isAdminEmail(user!.email)} />;
+  return <Feed {...data} collecting={collecting} collectingSince={collecting ? (profile?.collect_requested_at ?? null) : null} initialOpenId={offre ?? null} initialQuery={q?.slice(0, 80) ?? ""} searchEditor={<SearchEditor />} isAdmin={isAdminEmail(user!.email)} />;
 }

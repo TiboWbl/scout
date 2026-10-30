@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccountMenu } from "./account-menu";
+import { sortingPercent, useSortingProgress } from "./sorting-progress";
 
 // `badge`: something waiting there (a follow-up to send, an interview coming).
 type Item = { href: string; label: string; badge?: number };
@@ -26,6 +27,15 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
   const waiting = items.reduce((n, i) => n + (i.badge ?? 0), 0);
+  // The sort goes on while the person is elsewhere: where it stands, one click from Offres.
+  const sorting = useSortingProgress();
+  const percent = sorting ? sortingPercent(sorting) : null;
+  const sortingPill = sorting && !pathname.startsWith("/offres") && (
+    <Link href="/offres" className="flex items-center gap-2 rounded-[14px] px-3.5 py-2 text-[13px] text-muted hover:bg-pill-solid hover:text-ink" role="status">
+      <span aria-hidden className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
+      {percent !== null ? `Tri en cours · ${percent} %` : "Tri en cours…"}
+    </Link>
+  );
 
   return (
     <aside className="sticky top-0 z-30 -mx-4 -mt-4 flex shrink-0 flex-col border-b border-line bg-rail px-4 py-2.5 md:top-4 md:mx-0 md:mt-0 md:h-[calc(100vh-2rem)] md:w-[220px] md:gap-1 md:rounded-3xl md:border md:px-3.5 md:py-5">
@@ -34,6 +44,11 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
           Scout<span className="text-brand">.</span>
         </Link>
         <div className="flex items-center gap-1.5 md:hidden">
+          {sortingPill && (
+            <Link href="/offres" aria-label={percent !== null ? `Tri en cours, ${percent} %` : "Tri en cours"} className="grid h-10 w-10 place-items-center rounded-xl">
+              <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
+            </Link>
+          )}
           {/* The demo has no account: its banner already says the profile is fictional. */}
           {!footer && <AccountMenu firstName={firstName} avatarUrl={avatarUrl} isAdmin={isAdmin} />}
           <button
@@ -76,6 +91,7 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
           );
         })}
       </nav>
+      {sortingPill && <div className="hidden pt-2 md:block">{sortingPill}</div>}
       <div className="mt-auto hidden pt-4 md:block">{footer ?? <AccountMenu firstName={firstName} avatarUrl={avatarUrl} isAdmin={isAdmin} />}</div>
     </aside>
   );
