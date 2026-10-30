@@ -65,6 +65,7 @@ export function OfferCard({ item, favorite = false, selected, onOpen, onSave, on
         <span className="ml-auto flex items-center gap-1.5">
           {/* Published in the last 48 hours: applying early matters. */}
           {isNewOffer(offer) && <span className={NEW_PILL}>Nouveau</span>}
+          {item.previous && <span className="rounded-full bg-pill-solid px-2 py-0.5 text-[11px] font-semibold text-muted" title="Verdict de ta recherche précédente, en attendant celui de la nouvelle">Recherche précédente</span>}
           <LevelBadge level={item.level} />
         </span>
       </header>

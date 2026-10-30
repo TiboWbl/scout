@@ -26,6 +26,8 @@ export type FeedOffer = {
 
 export type FeedItem = {
   offer: FeedOffer;
+  // Kept from the person's previous search while the new one is being sorted.
+  previous?: boolean;
   level: Level;
   out_of_zone: boolean;
   excluded_reason: string | null;

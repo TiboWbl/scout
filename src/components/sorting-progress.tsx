@@ -66,7 +66,8 @@ export function useSorting(pending: number, enabled = true) {
 
 // `excluded`: offers already set aside (place, contract, experience, role): said, so an empty selection
 // during the sort never looks like a bug.
-export function SortingBanner({ progress, total, excluded = null }: { progress: Progress; total: number; excluded?: number | null }) {
+// `shown`: offers on screen now (new verdicts and, after a search change, the previous selection).
+export function SortingBanner({ progress, total, excluded = null, shown = 1 }: { progress: Progress; total: number; excluded?: number | null; shown?: number }) {
   // Two steps: the quick gates over the whole stock, then the model on the offers close to the role.
   // The count shown is the step under way, never 10 000 offers "read" one by one.
   const reading = progress.toRead !== undefined && progress.toRead > 0;
@@ -93,7 +94,7 @@ export function SortingBanner({ progress, total, excluded = null }: { progress: 
       <p className="mt-2 text-muted">
         {progress.note ??
           (reading
-            ? `${excluded ? `${excluded.toLocaleString("fr-FR")} offres hors de ta recherche sont déjà écartées. ` : ""}Les plus proches d'abord : ta sélection se remplit au fur et à mesure, tu peux déjà la parcourir.`
+            ? `${excluded ? `${excluded.toLocaleString("fr-FR")} offres hors de ta recherche sont déjà écartées. ` : ""}${shown > 0 ? "Les plus proches d'abord : ta sélection se remplit au fur et à mesure, tu peux déjà la parcourir." : "Les plus proches d'abord : les premières offres arrivent d'ici une minute."}`
             : "Lieu, contrat, expérience, métier : quelques secondes.")}
       </p>
     </div>

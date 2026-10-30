@@ -199,6 +199,7 @@ Rétention : les descriptions des offres archivées depuis plus de 60 jours sont
 
 ## Offres (fil)
 
+- **Pendant le tri d'une recherche modifiée** : la sélection précédente reste affichée, chaque offre marquée « Recherche précédente », jusqu'à ce qu'elle reçoive son verdict pour la nouvelle recherche : jamais une page vide pendant que Scout lit. Le bandeau ne dit « tu peux déjà la parcourir » que s'il y a quelque chose à parcourir ; sinon « les premières offres arrivent d'ici une minute ».
 - **Changement de recherche** : le bandeau dit que Scout va chercher de nouvelles offres, depuis quand et vers quelle heure elles arriveront (environ 25 minutes), et que les offres déjà connues sont triées pour la nouvelle recherche et s'affichent au fur et à mesure.
 - **Barre de recherche** : chaque mot tapé doit se trouver dans l'offre telle qu'on la voit (intitulé, entreprise, lieu, contrat, télétravail), sans tenir compte des accents, des majuscules ni des points : « V.I.E. » trouve tous les V.I.E., « CDI Lyon » les CDI à Lyon, « decath » Decathlon. Les offres écartées sont cherchées de même sur le serveur (intitulé, lieu, entreprise, contrat).
 

@@ -276,7 +276,7 @@ export function Feed({ collectingSince = null, sortHere = true, items: initial, 
         </p>
       )}
 
-      {progress && <SortingBanner progress={progress} total={total} excluded={excludedCount} />}
+      {progress && <SortingBanner progress={progress} total={total} excluded={excludedCount} shown={initial.length} />}
 
       <div className="mb-5 mt-5">
         {/* Two columns: the search over the level selector, "Modifier ma recherche" over the refinements,
