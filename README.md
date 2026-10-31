@@ -32,7 +32,7 @@ Tout ce que Scout affiche doit pouvoir être vérifié dans les offres elles-mê
 ## Architecture
 
 ```
-GitHub Actions (5 fois par jour) ──► collecte ──► tri ──► marché ──► email ──► démo
+GitHub Actions (3 fois par jour) ──► collecte ──► tri ──► marché ──► email ──► démo
    ATS · sites carrière · moteurs        │
                                          ▼
                               Supabase Postgres  ◄──  Next.js sur Vercel (Paris)

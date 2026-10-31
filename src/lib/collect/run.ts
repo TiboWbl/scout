@@ -265,7 +265,7 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
 
   for (let i = 0; i < keys.length; i += 100) {
     const slice = keys.slice(i, i + 100);
-    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description, published_at, archived_at, repost_count, reposted_at").in("dedup_key", slice);
+    const { data: existing, error } = await db.from("offers").select("dedup_key, sources, urls, description_length, published_at, archived_at, repost_count, reposted_at").in("dedup_key", slice);
     if (error) throw error;
     const known = new Map((existing ?? []).map((e) => [e.dedup_key, e]));
 
@@ -277,7 +277,8 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
       if (!urls.some((u) => u.url === o.sourceUrl)) urls.push({ source: o.sourceKey, url: o.sourceUrl });
       // Prefer the company's own page for applying when one is known.
       const direct = urls.find((u) => /greenhouse|lever|ashby|smartrecruiters|workable|recruitee|teamtailor|personio|digitalrecruiters|welcomekit/.test(u.source));
-      const prevDesc: string = prev?.description ?? "";
+      // Its length is enough to compare: reading every text back at each collection cost gigabytes.
+      const prevLength: number = prev?.description_length ?? 0;
       // Gone for more than two days, then back with a later publication date: the employer posted it
       // again. Without the new date, the gap may be a page or a list Scout could not read in full.
       const reposted = Boolean(
@@ -297,7 +298,8 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
         experience_max_years: range.max,
         experience_level: detectExperienceLevel(o.description),
         salary_text: detectSalary(o.description),
-        description: o.description.length >= prevDesc.length ? o.description : prevDesc,
+        // A shorter text (an engine's excerpt) never replaces a longer one: the column is left out.
+        ...(o.description.length >= prevLength ? { description: o.description } : {}),
         apply_url: direct?.url ?? o.applyUrl,
         ...(o.imageUrl ? { image_url: o.imageUrl } : {}),
         urls,
@@ -310,8 +312,12 @@ export async function upsertOffers(db: SupabaseClient, offers: NormalizedOffer[]
       };
     });
     created += rows.filter((r) => !known.has(r.dedup_key)).length;
-    const { error: upsertError } = await db.from("offers").upsert(rows, { onConflict: "dedup_key" });
-    if (upsertError) throw upsertError;
+    // Written apart: rows of one write must share their columns, or the missing ones become null.
+    for (const part of [rows.filter((r) => "description" in r), rows.filter((r) => !("description" in r))]) {
+      if (part.length === 0) continue;
+      const { error: upsertError } = await db.from("offers").upsert(part, { onConflict: "dedup_key" });
+      if (upsertError) throw upsertError;
+    }
   }
   return created;
 }

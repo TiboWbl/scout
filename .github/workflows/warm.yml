@@ -1,13 +1,13 @@
 # Keeps Scout quick to open: the free database and the site's functions fall asleep after a while
 # without visits, and the first page of the day then takes seconds. A few public pages (the demo,
-# fictional data) are opened every 20 minutes during the day, which keeps both awake. Free for a
+# fictional data) are opened every 30 minutes during the day, which keeps both awake. Free for a
 # public repository; prints only the HTTP status of each page.
 name: Garder Scout réveillé
 
 on:
   schedule:
-    # Every 20 minutes from 6:00 to 23:40 in Paris (UTC+2 in summer, UTC+1 in winter).
-    - cron: "*/20 4-21 * * *"
+    # Every 30 minutes from 6:00 to 23:30 in Paris (UTC+2 in summer, UTC+1 in winter).
+    - cron: "*/30 4-21 * * *"
   workflow_dispatch:
 
 jobs:
@@ -17,6 +17,6 @@ jobs:
     steps:
       - name: Ouvrir les pages
         run: |
-          for path in / /demo/offres /demo/marche /demo/suivi /demo/cv; do
+          for path in / /demo/offres; do
             curl -s -o /dev/null -w "$path %{http_code} %{time_total}s\n" --max-time 60 "https://scout-tibow.vercel.app$path"
           done

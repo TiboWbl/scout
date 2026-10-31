@@ -78,19 +78,10 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const version: number = profile.criteria_version;
   const experienceYears = criteria.experienceYears ?? cv?.experienceYears ?? null;
 
-  const scored = new Set(
-    (await pages<{ offer_id: string }>((f, t) => db.from("offer_scores").select("offer_id").eq("user_id", userId).eq("criteria_version", version).range(f, t))).map(
-      (r) => r.offer_id,
-    ),
-  );
-  const offers = await pages<LightOffer>((f, t) =>
-    db
-      .from("offers")
-      .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, company_id, has_description, company:companies(name)")
-      .is("archived_at", null)
-      .order("first_seen_at", { ascending: false })
-      .range(f, t) as unknown as PromiseLike<{ data: LightOffer[] | null; error: unknown }>,
-  );
+  // Only what is left to sort travels: reading the whole stock at each call cost gigabytes a month.
+  type Unsorted = Omit<LightOffer, "company"> & { company_name: string | null };
+  const light = (o: Unsorted): LightOffer => ({ ...o, company: { name: o.company_name ?? "" } });
+  const unscored = (await pages<Unsorted>((f, t) => db.rpc("unscored_offers", { p_user: userId, p_version: version }).range(f, t) as unknown as PromiseLike<{ data: Unsorted[] | null; error: unknown }>)).map(light);
   // V.I.E. judged under earlier rules (read as "level V", a title far from the role, another job judged
   // without the person's education) are read again for someone who seeks one.
   if (criteria.contracts.includes("vie")) {
@@ -102,13 +93,18 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       .eq("offer.contract", "vie")
       // Verdicts given before the fix only: a V.I.E. judged again keeps its new verdict.
       .lt("created_at", "2026-10-30T09:44:00Z");
-    for (const r of stale ?? []) scored.delete(r.offer_id as string);
+    const ids = (stale ?? []).map((r) => r.offer_id as string);
+    if (ids.length) {
+      const { data } = await db.from("offers").select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, company_id, has_description, company:companies(name)").is("archived_at", null).in("id", ids);
+      unscored.push(...((data ?? []) as unknown as LightOffer[]));
+    }
   }
-  const unscored = offers.filter((o) => !scored.has(o.id));
+  const { count: stock } = await db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null);
+  const total = stock ?? unscored.length;
   // All sorted: the rows of older versions are no longer needed.
   if (unscored.length === 0) {
     await db.from("offer_scores").delete().eq("user_id", userId).lt("criteria_version", version);
-    return { scoredNow: 0, remaining: 0, total: offers.length };
+    return { scoredNow: 0, remaining: 0, total };
   }
 
   // When a verdict is given (an upsert keeps the first date otherwise).
@@ -179,7 +175,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   }
   const quickRows = gateRows.length + reused.length;
   // The gates take a second: report them at once so progress moves before the slower LLM part.
-  if (quickRows > 0) return { scoredNow: quickRows, remaining: candidates.length, total: offers.length };
+  if (quickRows > 0) return { scoredNow: quickRows, remaining: candidates.length, total };
 
   candidates.sort((a, b) => b.rel - a.rel);
   const feedback = await loadFeedback(db, userId);
@@ -295,7 +291,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   if (failures.length > 0 && scoredNow === 0) throw failures[0].reason;
   const unfinished = running.length - finished + failures.length;
 
-  return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total: offers.length };
+  return { scoredNow, remaining: candidates.length + missed + unfinished * BATCH_SIZE, total };
 }
 
 // The person's own signals, newest first: kept or applied to (liked), set aside with a reason (disliked).
