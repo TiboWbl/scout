@@ -153,7 +153,9 @@ async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: st
   return { board: null, platform: null, careersUrl: null };
 }
 
-export async function resolveCompany(db: SupabaseClient, input: string | Entry): Promise<Resolution> {
+// `via`: who brought the company (a person, or a sector search). `keepUnfound: false` (sector search):
+// a company without a readable career page is not added to the directory at all.
+export async function resolveCompany(db: SupabaseClient, input: string | Entry, { via = "user", keepUnfound = true }: { via?: string; keepUnfound?: boolean } = {}): Promise<Resolution> {
   const entry: Entry = typeof input === "string" ? (isUrl(input.trim()) ? { site: input.trim() } : { name: input.trim() }) : input;
   const site = entry.site?.trim() || null;
   const host = site ? new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`).hostname.replace(/^www\./, "") : null;
@@ -196,13 +198,14 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry):
   const key = companyKey(name);
   const { data: existing } = await db.from("companies").select("id, name").eq("name_key", key).maybeSingle();
   const fields = {
-    ...(board ? { ats: board.ats, ats_token: board.token, discovered_via: "user" } : {}),
+    ...(board ? { ats: board.ats, ats_token: board.token, discovered_via: via } : {}),
     // A career-platform address (jobs.lever.co, x.welcomekit.co…) is not the company's own domain.
     ...(host && !/(welcomekit\.co|lever\.co|greenhouse\.io|ashbyhq\.com|smartrecruiters\.com|workable\.com|recruitee\.com|teamtailor\.com|personio\.(de|com))$/.test(host) ? { domain: host } : {}),
     careers_platform: platform,
     careers_url: careersUrl,
     ats_checked_at: new Date().toISOString(),
   };
+  if (!board && !existing && !keepUnfound) return { companyId: "", name, found: false, platform, offers: 0 };
   let companyId: string;
   if (existing) {
     await db.from("companies").update(fields).eq("id", existing.id);

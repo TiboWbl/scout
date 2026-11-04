@@ -76,7 +76,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   );
 }
 
-type Props = { items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
+type Props = { starter?: boolean; items: FeedItem[]; openness: number; pending: number; total: number; excludedCount: number; favoriteCompanyIds: string[]; initialOpenId: string | null;
   // Public demo: everything works in the session, nothing is saved, no sorting is started.
   demo?: boolean;
   base?: string; criteriaVersion: number; hasOffers: boolean; isAdmin: boolean;
@@ -90,7 +90,7 @@ type Props = { items: FeedItem[]; openness: number; pending: number; total: numb
 
 const hour = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
-export function Feed({ collectingSince = null, items: initial, openness, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
+export function Feed({ starter = false, collectingSince = null, items: initial, openness, total, excludedCount, favoriteCompanyIds, initialOpenId, demo = false, criteriaVersion, hasOffers, isAdmin, collecting = false, initialQuery = "", searchEditor = null }: Props) {
   const router = useRouter();
   // Optimistic local changes (save, pas pour moi) layered over server data.
   const [overrides, setOverrides] = useState<Record<string, Partial<FeedItem>>>({});
@@ -154,7 +154,9 @@ export function Feed({ collectingSince = null, items: initial, openness, total, 
   const { main, outOfZone, elsewhere, set_aside, waiting } = useMemo(() => {
     // Within a level, the newest first (applying early matters); fit breaks ties.
     const day = (i: FeedItem) => Math.floor(new Date(i.offer.published_at ?? i.offer.first_seen_at).getTime() / 86_400_000);
-    const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || day(b) - day(a) || rank(b, openness) - rank(a, openness);
+    // For someone starting out, offers open to a beginner (junior, 2 years at most) lead each level.
+    const open = (i: FeedItem) => (starter && isJunior(i) ? 0 : 1);
+    const byRank = (a: FeedItem, b: FeedItem) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || open(a) - open(b) || day(b) - day(a) || rank(b, openness) - rank(a, openness);
     // The previous search's selection, while the new one is sorted: shown apart, never counted, so the
     // counts only grow as new verdicts land.
     const visible = items.filter((i) => !i.dismissed && !i.previous);
@@ -166,7 +168,7 @@ export function Feed({ collectingSince = null, items: initial, openness, total, 
       elsewhere: visible.filter((i) => i.level !== "ecartee" && i.out_of_zone).sort(byRank),
       set_aside: items.filter((i) => !i.previous && (i.dismissed || i.level === "ecartee" || (i.out_of_zone && !isExceptional(i)))),
     };
-  }, [items, openness]);
+  }, [items, openness, starter]);
 
   // Model-set-aside offers are counted server-side; dismissed and out-of-zone ones are already here.
   const excludedTotal = excludedCount + set_aside.filter((i) => i.level !== "ecartee").length;

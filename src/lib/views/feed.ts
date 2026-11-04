@@ -59,6 +59,8 @@ export async function loadFeed(db: SupabaseClient, userId: string) {
     items,
     openness: criteria.openness,
     pending,
+    // Starting out (2 years or less): offers open to a beginner come first within each level.
+    starter: (criteria.experienceYears ?? 99) <= 2,
     excludedCount: Math.max(0, (scoredCount.count ?? 0) - shownOnline),
     favoriteCompanyIds: (favorites.data ?? []).map((f) => f.company_id as string),
     criteriaVersion: version,
