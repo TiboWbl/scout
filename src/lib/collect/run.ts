@@ -182,12 +182,17 @@ export async function collectBoard(db: SupabaseClient, board: Board & { id: stri
       .is("archived_at", null)
       .select("id");
     report.archived = data?.length ?? 0;
-    await db.from("companies").update({ last_collected_at: new Date().toISOString() }).eq("id", board.id);
+    await db.from("companies").update({ last_collected_at: new Date().toISOString(), board_missing_since: null }).eq("id", board.id);
   } catch (error) {
     report.error = (error as Error).message.slice(0, 120);
-    // A board that no longer exists is dropped from the rotation; discovery may find it again.
-    if (/HTTP 404/.test(report.error)) await db.from("companies").update({ ats: null, ats_token: null }).eq("id", board.id);
-    else await db.from("companies").update({ last_collected_at: new Date().toISOString() }).eq("id", board.id);
+    // A board that no longer exists is dropped from the rotation, once it has answered 404 for a day (a
+    // single 404 can be a passing error: Getaround's Polymer page was lost that way); discovery may find it again.
+    if (/HTTP 404/.test(report.error)) {
+      const { data: c } = await db.from("companies").select("board_missing_since").eq("id", board.id).maybeSingle();
+      const since = c?.board_missing_since ? Date.parse(c.board_missing_since) : null;
+      if (since && Date.now() - since > 86_400_000) await db.from("companies").update({ ats: null, ats_token: null, board_missing_since: null }).eq("id", board.id);
+      else await db.from("companies").update({ last_collected_at: new Date().toISOString(), ...(since ? {} : { board_missing_since: new Date().toISOString() }) }).eq("id", board.id);
+    } else await db.from("companies").update({ last_collected_at: new Date().toISOString() }).eq("id", board.id);
   }
   return report;
 }

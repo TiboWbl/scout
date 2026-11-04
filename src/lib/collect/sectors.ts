@@ -11,6 +11,14 @@ import { resolveCompany } from "./resolve";
 
 const SYSTEM = `Tu connais bien le marché de l'emploi en France. Pour un secteur donné, liste des entreprises dont c'est le cœur de métier (pas un client ni un fournisseur du secteur) et qui recrutent en France, avec leur site web officiel : marques, distributeurs, start-ups et scale-ups, éditeurs d'applications, médias, clubs et organisations, selon le secteur. Uniquement des entreprises réelles et actives dont tu es sûr ; si tu doutes d'une entreprise ou de son site, ne la mets pas. Le nom seul, tel que l'entreprise l'écrit, sans parenthèses ni liste de marques. Réponds uniquement avec {"entreprises": [{"nom": "...", "site": "exemple.com"}]}.`;
 
+// One company name, as offers write it: the bolded name when the model wrote a sentence ("PayFit
+// **Shine**" → "Shine"), never parentheses ("Groupe Lagardère (Paris Match)") nor markdown.
+export function cleanName(raw: string): string {
+  const bold = [...raw.matchAll(/\*\*(.+?)\*\*/g)].map((m) => m[1]);
+  const name = bold.length ? bold[bold.length - 1] : raw;
+  return name.replace(/[*_`#]/g, "").replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export type SectorReport = { sector: string; proposed: number; added: number; offers: number };
 
 export async function sectorsSought(db: SupabaseClient): Promise<string[]> {
@@ -35,7 +43,7 @@ export async function discoverSector(db: SupabaseClient, llm: LlmProvider, secto
       const x = e as { nom?: unknown; site?: unknown };
       if (typeof x.nom !== "string" || !x.nom.trim()) continue;
       // The company's name only, as offers write it: "Groupe Lagardère (Paris Match, JDD)" → "Groupe Lagardère".
-      const nom = x.nom.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+      const nom = cleanName(x.nom);
       if (!nom || nom.length > 60) continue;
       const key = companyKey(nom);
       if (seen.has(key) || have.has(key)) continue;
@@ -72,7 +80,7 @@ export async function discoverSimilar(db: SupabaseClient, llm: LlmProvider, favo
     for (const e of Array.isArray(read?.entreprises) ? read!.entreprises : []) {
       const x = e as { nom?: unknown; site?: unknown };
       if (typeof x.nom !== "string" || !x.nom.trim()) continue;
-      const nom = x.nom.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+      const nom = cleanName(x.nom);
       if (!nom || nom.length > 60) continue;
       const key = companyKey(nom);
       if (seen.has(key) || have.has(key)) continue;
@@ -91,6 +99,12 @@ async function resolveAll(db: SupabaseClient, proposals: { nom: string; site: st
     Array.from({ length: 4 }, async () => {
       while (next < proposals.length) {
         const p = proposals[next++];
+        // A company already in the directory under another name (Drivy is Getaround): never twice.
+        const host = p.site.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+        if (host) {
+          const { data: same } = await db.from("companies").select("id").eq("domain", host).limit(1);
+          if (same?.length) continue;
+        }
         const r = await Promise.race([
           resolveCompany(db, p.site ? { name: p.nom, site: p.site } : { name: p.nom }, { via, keepUnfound: false }),
           new Promise<null>((r) => setTimeout(() => r(null), 45_000)),

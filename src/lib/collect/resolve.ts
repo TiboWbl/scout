@@ -155,6 +155,12 @@ async function exploreSite(site: string): Promise<{ board: { ats: Ats; token: st
 
 // `via`: who brought the company (a person, or a sector search). `keepUnfound: false` (sector search):
 // a company without a readable career page is not added to the directory at all.
+function boardNames(token: string, name: string, host: string | null): boolean {
+  const t = token.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const stems = [...name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !["groupe", "group", "france", "the", "les", "sas"].includes(w)), ...(host ? [host.split(".")[0]] : [])];
+  return stems.some((s) => t.includes(s.replace(/[^a-z0-9]/g, "")));
+}
+
 export async function resolveCompany(db: SupabaseClient, input: string | Entry, { via = "user", keepUnfound = true }: { via?: string; keepUnfound?: boolean } = {}): Promise<Resolution> {
   const entry: Entry = typeof input === "string" ? (isUrl(input.trim()) ? { site: input.trim() } : { name: input.trim() }) : input;
   const site = entry.site?.trim() || null;
@@ -206,6 +212,9 @@ export async function resolveCompany(db: SupabaseClient, input: string | Entry, 
     ats_checked_at: new Date().toISOString(),
   };
   if (!board && !existing && !keepUnfound) return { companyId: "", name, found: false, platform, offers: 0 };
+  // An automatic search accepts only a board that names the company or its site: "Hopin" leads to
+  // RingCentral's careers since a takeover, which are not Hopin's offers.
+  if (board && !keepUnfound && !boardNames(board.token, name, host)) return { companyId: "", name, found: false, platform, offers: 0 };
   let companyId: string;
   if (existing) {
     await db.from("companies").update(fields).eq("id", existing.id);

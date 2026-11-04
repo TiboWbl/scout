@@ -197,3 +197,15 @@ describe("page d'offre sans JobPosting", async () => {
     expect(fromHtmlPage(`<main><h1>Chef de projet</h1><p>Bientôt.</p></main>`, "https://exemple.fr/jobs/chef")).toBeNull();
   });
 });
+
+describe("noms proposés par la recherche par secteur", async () => {
+  const { cleanName } = await import("@/lib/collect/sectors");
+  it.each([
+    ["PayFit **Shine**", "Shine"],
+    ["PayFit **Doctolib** **Keleo**", "Keleo"],
+    ["Groupe Lagardère (Paris Match, JDD)", "Groupe Lagardère"],
+    ["Strava", "Strava"],
+  ])("« %s » → « %s »", (raw, name) => {
+    expect(cleanName(raw)).toBe(name);
+  });
+});
