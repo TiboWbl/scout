@@ -30,6 +30,9 @@ export function withEnglish(row: Record<string, unknown>, english: boolean): Rec
 }
 
 export const languageReason = (l: { language: string; quote: string }) => `L'offre demande de parler ${l.language} : « ${l.quote} ». Si tu le parles, ajoute-le à ta recherche.`;
+const TITLE_REASON = "L'intitulé ne correspond à aucun de tes métiers ni de tes passerelles.";
+// When the title rule last changed: exclusions by title given before are read again.
+const TITLE_RULES_AT = "2026-11-04T18:00:00Z";
 export const INVENTED_REASON = "L'intitulé ressemble à ton métier, mais l'offre décrit un autre métier.";
 export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
@@ -123,6 +126,25 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       unscored.push(...((data ?? []) as unknown as LightOffer[]));
     }
   }
+  // Offers set aside by the title under an earlier rule (a title qualified by hand, "Customer Success
+  // Manager - Produits SaaS", named nothing) are gated again: deterministic, so cheap.
+  {
+    const { data: stale } = await db
+      .from("offer_scores")
+      .select("offer_id")
+      .eq("user_id", userId)
+      .eq("criteria_version", version)
+      .eq("scored_by", "prefilter")
+      .eq("excluded_reason", TITLE_REASON)
+      .lt("created_at", TITLE_RULES_AT)
+      .limit(3000);
+    const queued = new Set(unscored.map((o) => o.id));
+    const ids = (stale ?? []).map((r) => r.offer_id as string).filter((id) => !queued.has(id));
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data } = await db.from("offers").select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, company_id, has_description, company:companies(name)").is("archived_at", null).in("id", ids.slice(i, i + 300));
+      unscored.push(...((data ?? []) as unknown as LightOffer[]));
+    }
+  }
   const { count: stock } = await db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null);
   const total = stock ?? unscored.length;
   // All sorted: the rows of older versions are no longer needed.
@@ -161,7 +183,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         ...base,
         offer_id: p.offer.id,
         level: "ecartee",
-        excluded_reason: "L'intitulé ne correspond à aucun de tes métiers ni de tes passerelles.",
+        excluded_reason: TITLE_REASON,
         scored_by: "prefilter",
       });
   }

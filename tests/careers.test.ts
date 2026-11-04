@@ -35,3 +35,13 @@ describe("explorer d'autres métiers", () => {
     expect(ideas[2]).toMatchObject({ open: 0, junior: 0 });
   });
 });
+
+describe("intitulés précisés à la main", () => {
+  it("un intitulé visé suivi d'une précision reconnaît le métier", async () => {
+    const { namesRole } = await import("@/lib/scoring/relevance");
+    const c = Criteria.parse({ targetRoles: ["Product Manager"], titleVariants: ["Customer Success Manager - Produits SaaS", "Business Analyst (tech)"] });
+    expect(namesRole("Customer Success Manager", "", c)).toBe(true);
+    expect(namesRole("Business Analyst IT H/F", "", c)).toBe(true);
+    expect(namesRole("Customer Service Agent", "", c)).toBe(false);
+  });
+});

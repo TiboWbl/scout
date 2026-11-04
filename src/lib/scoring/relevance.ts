@@ -70,7 +70,10 @@ export function relevance(title: string, description: string, criteria: Criteria
 // Title-only match against the roles sought and bridges. Deciding which offers reach the LLM on the
 // description would send nearly everything: "work closely with product managers" is everywhere.
 // "QA avec évolution vers le produit" is searched as "QA": qualifiers never appear in job titles.
-const core = (phrase: string) => phrase.split(/\s+(?:orient[ée]e?s?|avec|en|pour|vers|dans|with|towards)\s/i)[0].replace(/\s*\(.*$/, "");
+// The job a criteria title names, without what qualifies it: "Customer Success Manager - Produits SaaS",
+// "Product Owner orienté discovery" and "Business Analyst (tech)" name a Customer Success Manager, a Product
+// Owner and a Business Analyst. The qualifier still reaches the judge, which reads the whole phrase.
+export const core = (phrase: string) => phrase.split(/\s[-–—|:/]\s|,|\s+(?:orient[ée]e?s?|avec|en|pour|vers|dans|with|towards|chez|sur)\s/i)[0].replace(/\s*\(.*$/, "").trim();
 
 export function titleRelevance(title: string, criteria: Criteria): number {
   const titleTokens = new Set(tokens(title));

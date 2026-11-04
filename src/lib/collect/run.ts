@@ -3,7 +3,7 @@ import { Criteria } from "@/lib/domain/criteria";
 import type { NormalizedOffer } from "@/lib/domain/offer";
 import { fetchBoard, SEED_BOARDS, type Ats, type Board } from "./connectors/ats";
 import type { Keep, Wanted } from "./connectors/ats-more";
-import { titleRelevance } from "@/lib/scoring/relevance";
+import { core, titleRelevance } from "@/lib/scoring/relevance";
 import { detectExperience, detectExperienceLevel, detectRemote, detectSalary } from "@/lib/domain/signals";
 import { fetchAdzuna, isAdzunaConfigured, type SearchQuery } from "./connectors/adzuna";
 import { fetchJooble, isJoobleConfigured } from "./connectors/jooble";
@@ -133,10 +133,10 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
     const where = place?.label ?? null;
     // Starting out (2 years or less): the search engines are asked for junior posts first, since a plain
     // "Product Manager" search fills up with confirmed and senior ones.
-    const titles = [...c.targetRoles, ...c.titleVariants, ...c.bridgeRoles.slice(0, 2)];
+    const titles = [...new Set([...c.targetRoles, ...c.titleVariants, ...c.bridgeRoles.slice(0, 2)].map(core))];
     const starter = c.experienceYears !== null && c.experienceYears <= 2;
     const junior = (t: string) => (/\b(junior|jr|associate|graduate|d[ée]butant|stagiaire|alternan)\b/i.test(t) ? t : `${t} junior`);
-    const wanted = starter ? [...new Set([...titles.map(junior), ...c.targetRoles])] : [...c.targetRoles, ...c.titleVariants];
+    const wanted = starter ? [...new Set([...titles.map(junior), ...c.targetRoles.map(core)])] : [...new Set([...c.targetRoles, ...c.titleVariants].map(core))];
     perPerson.push(wanted.map((what) => ({ what: what.trim(), where, country: place?.country ?? null })));
   }
   const queries: SearchQuery[] = [];
