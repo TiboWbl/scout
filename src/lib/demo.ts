@@ -41,7 +41,12 @@ export async function getDemoUserId(db: SupabaseClient): Promise<string | null> 
 // Creates Camille if needed (no password, an address nobody can receive: she can never sign in).
 export async function ensureDemoProfile(db: SupabaseClient): Promise<string> {
   const existing = await getDemoUserId(db);
-  if (existing) return existing;
+  if (existing) {
+    // Camille's search follows the code: a new version is sorted again by the next pass.
+    const { data: p } = await db.from("profiles").select("criteria, criteria_version").eq("id", existing).single();
+    if (JSON.stringify(p?.criteria) !== JSON.stringify(DEMO_CRITERIA)) await db.from("profiles").update({ criteria: DEMO_CRITERIA, criteria_version: (p?.criteria_version ?? 0) + 1 }).eq("id", existing);
+    return existing;
+  }
   const { data, error } = await db.auth.admin.createUser({ email: DEMO_EMAIL, email_confirm: true, user_metadata: { given_name: "Camille" } });
   if (error) throw error;
   const id = data.user!.id;
