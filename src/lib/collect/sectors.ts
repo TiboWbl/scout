@@ -43,6 +43,47 @@ export async function discoverSector(db: SupabaseClient, llm: LlmProvider, secto
       proposals.push({ nom, site: typeof x.site === "string" ? x.site.trim() : "" });
     }
   }
+  return resolveAll(db, proposals, `secteur:${sector}`, sector);
+}
+
+// Companies like the ones a person already follows: favourites describe what they like (sector, size,
+// product, culture) better than any keyword. Same checks as for a sector: only a real career page with
+// offers in France enters the directory.
+const SIMILAR = `Tu connais bien les entreprises qui recrutent en France. À partir d'une liste d'entreprises qu'une personne aime, propose d'autres entreprises qui leur ressemblent (même secteur, même taille, même type de produit ou même culture) et qui recrutent en France, en particulier celles qu'on connaît moins. Pas celles de la liste. Uniquement des entreprises réelles et actives dont tu es sûr, avec leur site web officiel. Le nom seul, tel que l'entreprise l'écrit. Réponds uniquement avec {"entreprises": [{"nom": "...", "site": "exemple.com"}]}.`;
+
+export async function favoritesSought(db: SupabaseClient): Promise<string[][]> {
+  const { data } = await db.from("favorite_companies").select("user_id, company:companies(name)");
+  const byUser = new Map<string, string[]>();
+  for (const f of data ?? []) {
+    const name = (f.company as unknown as { name: string } | null)?.name;
+    if (name) byUser.set(f.user_id as string, [...(byUser.get(f.user_id as string) ?? []), name]);
+  }
+  return [...byUser.values()].filter((list) => list.length >= 3);
+}
+
+export async function discoverSimilar(db: SupabaseClient, llm: LlmProvider, favorites: string[]): Promise<SectorReport> {
+  const { data: known } = await db.from("companies").select("name_key").not("ats", "is", null);
+  const have = new Set((known ?? []).map((c) => c.name_key as string));
+  const seen = new Set<string>();
+  const proposals: { nom: string; site: string }[] = [];
+  // A few favourites at a time: the model looks closer at each.
+  for (let i = 0; i < favorites.length; i += 15) {
+    const read = (await llm.json({ system: SIMILAR, user: `Entreprises aimées : ${favorites.slice(i, i + 15).join(", ")}. Propose jusqu'à 25 entreprises qui leur ressemblent.`, tier: "fast" }).catch(() => null)) as { entreprises?: unknown } | null;
+    for (const e of Array.isArray(read?.entreprises) ? read!.entreprises : []) {
+      const x = e as { nom?: unknown; site?: unknown };
+      if (typeof x.nom !== "string" || !x.nom.trim()) continue;
+      const nom = x.nom.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+      if (!nom || nom.length > 60) continue;
+      const key = companyKey(nom);
+      if (seen.has(key) || have.has(key)) continue;
+      seen.add(key);
+      proposals.push({ nom, site: typeof x.site === "string" ? x.site.trim() : "" });
+    }
+  }
+  return resolveAll(db, proposals, "favorites-similaires", "favorites similaires");
+}
+
+async function resolveAll(db: SupabaseClient, proposals: { nom: string; site: string }[], via: string, label: string): Promise<SectorReport> {
   let added = 0;
   let offers = 0;
   let next = 0;
@@ -51,7 +92,7 @@ export async function discoverSector(db: SupabaseClient, llm: LlmProvider, secto
       while (next < proposals.length) {
         const p = proposals[next++];
         const r = await Promise.race([
-          resolveCompany(db, p.site ? { name: p.nom, site: p.site } : { name: p.nom }, { via: `secteur:${sector}`, keepUnfound: false }),
+          resolveCompany(db, p.site ? { name: p.nom, site: p.site } : { name: p.nom }, { via, keepUnfound: false }),
           new Promise<null>((r) => setTimeout(() => r(null), 45_000)),
         ]).catch(() => null);
         if (r?.found) {
@@ -61,5 +102,5 @@ export async function discoverSector(db: SupabaseClient, llm: LlmProvider, secto
       }
     }),
   );
-  return { sector, proposed: proposals.length, added, offers };
+  return { sector: label, proposed: proposals.length, added, offers };
 }

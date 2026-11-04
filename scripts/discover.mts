@@ -26,9 +26,14 @@ const report = await discover(db, [...fromCrawl, ...fromNames], { log });
 await markNamesChecked(db, companyIds);
 // The sectors people put first: their companies, start-ups included, looked for by name (counts only).
 const { getLlm } = await import("@/lib/llm");
-const { discoverSector, sectorsSought } = await import("@/lib/collect/sectors");
+const { discoverSector, discoverSimilar, favoritesSought, sectorsSought } = await import("@/lib/collect/sectors");
 for (const sector of await sectorsSought(db)) {
   const r = await discoverSector(db, getLlm(), sector).catch(() => null);
   if (r) log(`secteur prioritaire : ${r.proposed} entreprises proposées, ${r.added} pages carrière ajoutées, ${r.offers} offres lues`);
+}
+// Companies like each person's favourites (counts only).
+for (const favorites of await favoritesSought(db)) {
+  const r = await discoverSimilar(db, getLlm(), favorites).catch(() => null);
+  if (r) log(`comme les favorites : ${r.proposed} entreprises proposées, ${r.added} pages carrière ajoutées, ${r.offers} offres lues`);
 }
 log(`\n${report.added} entreprises ajoutées sur ${report.checked} vérifiées ${JSON.stringify(report.byAts)}, ${Math.round((Date.now() - started) / 1000)} s`);

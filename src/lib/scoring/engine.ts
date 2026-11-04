@@ -5,6 +5,22 @@ import type { Place, Remote } from "@/lib/domain/offer";
 import { chancesCap, gapLimit, gapReason, prefilter, STARTER_YEARS } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
 
+// Starting out (2 years or less), a crush is first a company that looks for this profile: the offer opens
+// to it (junior, beginner, 0 to 2 years, junior-level missions). Otherwise Solide at best; missions of a
+// confirmed level with no figure opening them to a junior, Tremplin at best, and said so.
+const JUNIOR_TITLE = /\b(junior|jr|associate|graduate|entry[- ]level|d[ée]butant|jeune dipl[oô]m|alternan|stagiaire|stage|intern)\b/i;
+export function forStarter(row: Record<string, unknown>, o: { years: number | null; stated: number | null; juniorSignal: boolean; seniority: string | null | undefined }): Record<string, unknown> {
+  if (o.years === null || o.years > STARTER_YEARS || row.level === "ecartee") return row;
+  const open = o.juniorSignal || o.seniority === "junior" || (o.stated !== null && o.stated - o.years <= 1);
+  if (open) return row;
+  if (o.stated === null && o.seniority === "confirme" && (row.level === "coeur" || row.level === "solide")) {
+    const watch = ["Niveau confirmé estimé d'après les missions : un recruteur attend sans doute 3 à 5 ans d'expérience.", ...((row.watch as string[] | undefined) ?? [])].slice(0, 2);
+    return { ...row, level: "tremplin", watch };
+  }
+  return row.level === "coeur" ? { ...row, level: "solide" } : row;
+}
+export const juniorSignal = (title: string, experienceLevel: string | null | undefined) => experienceLevel === "junior" || JUNIOR_TITLE.test(title);
+
 export const ENGLISH_REASON = "Annonce en anglais : le poste se passe sans doute en anglais, et tu préfères travailler en français.";
 // A posting in English for someone who works in English only a little: never a crush, and said so.
 export function withEnglish(row: Record<string, unknown>, english: boolean): Record<string, unknown> {
@@ -284,7 +300,13 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
           .map(({ offer, outOfZone, gap }) => {
-            const row = withEnglish(scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id), inEnglish.has(offer.id));
+            const judged = results.get(offer.id)!;
+            const row = forStarter(withEnglish(scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id), inEnglish.has(offer.id)), {
+              years: experienceYears,
+              stated: offer.experience_min_years ?? judged.experience_years,
+              juniorSignal: juniorSignal(offer.title, offer.experience_level),
+              seniority: judged.seniority,
+            });
             // A reason built on a role word the offer never uses ("vidéo" for a bike mechanic) is an invention.
             const why = typeof row.why === "string" ? row.why : "";
             return row.level !== "ecartee" && inventedRoleWords(why, offer.title, descriptions.get(offer.id) ?? "", criteria).length > 0
@@ -437,7 +459,15 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
     );
     for (const { offer, outOfZone, gap } of toJudge) {
       const judged = results.get(offer.id);
-      if (judged) rows.push(withEnglish(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts), criteria.englishWork === "un_peu" && isEnglishPosting(offer.description ?? "")));
+      if (judged)
+        rows.push(
+          forStarter(withEnglish(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts), criteria.englishWork === "un_peu" && isEnglishPosting(offer.description ?? "")), {
+            years: experienceYears,
+            stated: offer.experience_min_years ?? judged.experience_years,
+            juniorSignal: juniorSignal(offer.title, offer.experience_level),
+            seniority: judged.seniority,
+          }),
+        );
     }
   }
   if (rows.length > 0) {

@@ -322,3 +322,23 @@ describe("écart d'expérience après le jugement : où la personne peut être p
     expect(scoreRow({ user_id: "u", criteria_version: 1 }, "o", false, 1, judged, 1, 2, null).level).toBe("solide");
   });
 });
+
+describe("en début de carrière, un coup de cœur est une offre ouverte à son profil", async () => {
+  const { forStarter, juniorSignal } = await import("@/lib/scoring/engine");
+  const row = (level: string) => ({ level, watch: [] as string[] });
+  it("junior ou 0 à 2 ans : le coup de cœur reste", () => {
+    expect(forStarter(row("coeur"), { years: 1, stated: 2, juniorSignal: false, seniority: "confirme" }).level).toBe("coeur");
+    expect(forStarter(row("coeur"), { years: 1, stated: null, juniorSignal: juniorSignal("Junior Product Manager", null), seniority: "confirme" }).level).toBe("coeur");
+  });
+  it("niveau confirmé estimé, sans chiffre : Tremplin au mieux, et la raison", () => {
+    const r = forStarter(row("coeur"), { years: 1, stated: null, juniorSignal: false, seniority: "confirme" });
+    expect(r.level).toBe("tremplin");
+    expect((r.watch as string[])[0]).toContain("Niveau confirmé estimé");
+  });
+  it("rien de net sur le niveau : Solide au mieux", () => {
+    expect(forStarter(row("coeur"), { years: 1, stated: null, juniorSignal: false, seniority: null }).level).toBe("solide");
+  });
+  it("au-delà de 2 ans d'expérience, rien ne change", () => {
+    expect(forStarter(row("coeur"), { years: 4, stated: null, juniorSignal: false, seniority: "confirme" }).level).toBe("coeur");
+  });
+});
