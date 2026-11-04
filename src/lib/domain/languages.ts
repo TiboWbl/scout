@@ -85,3 +85,26 @@ export function missingLanguage(text: string, languages: string[]): { language: 
   const missing = requiredLanguages(text).find((r) => !r.alternatives.some((l) => spoken.has(l)));
   return missing ? { language: missing.language, quote: missing.quote } : null;
 }
+
+// A posting written in English (more English than French function words): the team most likely works in
+// English. Short texts say nothing reliable.
+const EN_WORDS = new Set(["the", "and", "you", "with", "our", "will", "your", "for", "are", "team", "we", "of", "to", "in"]);
+const FR_WORDS = new Set(["et", "les", "des", "vous", "avec", "nous", "pour", "une", "dans", "est", "le", "la", "de", "du"]);
+export function isEnglishPosting(text: string): boolean {
+  const words = text.toLowerCase().match(/\b[a-zà-ÿ]+\b/g) ?? [];
+  if (words.length < 120) return false;
+  const en = words.filter((w) => EN_WORDS.has(w)).length;
+  const fr = words.filter((w) => FR_WORDS.has(w)).length;
+  return en > fr * 1.5;
+}
+
+// English asked at a native or bilingual level, which a C1 does not meet.
+const NATIVE_ENGLISH = /\b(native english|english native|native[- ]level english|native or near[- ]native english|english (as a )?(native|mother) (speaker|tongue|language)|bilingual (in )?english|anglais (natif|langue maternelle)|bilingue (en )?anglais|anglais bilingue)\b/i;
+export function requiresNativeEnglish(text: string): boolean {
+  const m = NATIVE_ENGLISH.exec(text);
+  if (!m) return false;
+  // Asked, not wished for: "native English is a plus" does not count.
+  const around = text.slice(Math.max(0, m.index - 80), m.index + m[0].length + 80);
+  return !WISH.test(around.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""));
+}
+export const speaksNativeEnglish = (languages: string[]) => /\b(anglais|english)\b[^,;]*\b(natif|native|maternelle|mother tongue|bilingue|bilingual|c2)\b/i.test(languages.join(" ; "));

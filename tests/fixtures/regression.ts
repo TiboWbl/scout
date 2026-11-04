@@ -79,13 +79,15 @@ export const CASES: Case[] = [
     expect: { stage: "llm", levels: ["coeur", "solide"] },
   },
   {
-    name: "6. 3 ans d'expérience demandés pour un junior : gardée, chances réduites",
+    // Changed on 4 November 2026 at the user's request: a recruiter does not hire someone with one year for
+    // a post that writes three; such offers crowded the selection without a real chance.
+    name: "6. 3 ans d'expérience demandés pour un junior : écartée",
     title: "Product Owner",
     company: "Bricks Platform",
     location: "Paris",
     description:
       "Tu gères le backlog d'une squad de 6 développeurs, rédiges les spécifications et animes les rituels agiles. Profil recherché : 3 ans d'expérience minimum en tant que Product Owner, maîtrise de Jira, anglais courant. CDI.",
-    expect: { stage: "llm", levels: ["coeur", "solide", "tremplin"], chancesBelow: 70 },
+    expect: { stage: "prefilter", excluded: true },
   },
   {
     name: "7. Associate PM healthtech, profil ingénieur, mentorat : coup de cœur",

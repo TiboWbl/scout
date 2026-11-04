@@ -187,6 +187,27 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
           />
           ans
         </label>
+        <div className="mt-4 text-sm">
+          <p>Travailler en anglais</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(
+              [
+                ["oui", "Oui"],
+                ["un_peu", "Un peu"],
+                ["non", "Non"],
+              ] as const
+            ).map(([key, label]) => (
+              <Toggle key={key} on={value.englishWork === key} label={label} onClick={() => set("englishWork", key)} />
+            ))}
+          </div>
+          <p className="mt-2 text-[13px] text-muted">
+            {value.englishWork === "non"
+              ? "Les offres rédigées en anglais sont écartées : le poste se passe sans doute en anglais."
+              : value.englishWork === "un_peu"
+                ? "Une offre rédigée en anglais reste possible, jamais en coup de cœur, et elle le dit."
+                : "Les offres en anglais comptent comme les autres."}
+          </p>
+        </div>
         <label className="mt-3 flex items-center gap-3 text-sm">
           Disponibilité
           <input

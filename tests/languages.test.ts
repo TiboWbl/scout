@@ -45,3 +45,26 @@ describe("l'activité d'une entreprise vaut pour toutes ses offres", async () =>
     expect(isCompanyWide(activity)).toBe(ok);
   });
 });
+
+describe("travailler en anglais", async () => {
+  const { isEnglishPosting, requiresNativeEnglish, speaksNativeEnglish } = await import("@/lib/domain/languages");
+  const { withEnglish } = await import("@/lib/scoring/engine");
+  const en = "We are looking for a Product Manager to join our team. You will own the roadmap and work with our engineers. ".repeat(8);
+  const fr = "Nous recherchons un Product Manager pour rejoindre notre équipe. Tu construis la roadmap avec les équipes et les utilisateurs. ".repeat(8);
+  it("reconnaît une annonce rédigée en anglais", () => {
+    expect(isEnglishPosting(en)).toBe(true);
+    expect(isEnglishPosting(fr)).toBe(false);
+    expect(isEnglishPosting(`${fr} English is a plus.`)).toBe(false);
+  });
+  it("un anglais natif exigé ne se contente pas d'un C1", () => {
+    expect(requiresNativeEnglish("Native English speaker, fluent French.")).toBe(true);
+    expect(requiresNativeEnglish("Fluent English. Native English is a plus.")).toBe(false);
+    expect(speaksNativeEnglish(["Français (niveau natif)", "Anglais (C1)"])).toBe(false);
+    expect(speaksNativeEnglish(["Anglais (bilingue)"])).toBe(true);
+  });
+  it("« un peu » : une annonce en anglais n'est jamais un coup de cœur, et le dit", () => {
+    const row = withEnglish({ level: "coeur", watch: [] }, true);
+    expect(row.level).toBe("solide");
+    expect(row.watch).toEqual(["Annonce en anglais : une partie du travail se fera sans doute en anglais."]);
+  });
+});

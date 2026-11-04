@@ -49,6 +49,8 @@ export const Criteria = z.object({
   contracts: z.array(z.enum(CONTRACTS)).default([]),
   experienceYears: z.number().min(0).max(45).nullable().default(null),
   languages: list(),
+  // Working in English: fine, a little (an English posting is never a crush), or not (set aside).
+  englishWork: z.enum(["oui", "un_peu", "non"]).default("oui"),
   availability: z.string().trim().nullable().default(null),
   companiesAvoid: list(),
   companiesFollow: list(),

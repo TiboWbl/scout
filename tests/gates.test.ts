@@ -103,7 +103,10 @@ describe("contrat, séniorité, expérience", () => {
   it("un écart d'expérience est une porte, pas un point", () => {
     const sixYears = { ...paris, title: "Product Manager", contract: "cdi", experience_min_years: 6 };
     expect(prefilter(sixYears, PROFILE, 1).pass).toBe(false);
-    expect(prefilter({ ...sixYears, experience_min_years: 3 }, PROFILE, 1).pass).toBe(true);
+    // Starting out (2 years or less): 2 more years written already set it aside; later, 2 more years pass.
+    expect(prefilter({ ...sixYears, experience_min_years: 3 }, PROFILE, 1).pass).toBe(false);
+    expect(prefilter({ ...sixYears, experience_min_years: 2 }, PROFILE, 1).pass).toBe(true);
+    expect(prefilter({ ...sixYears, experience_min_years: 6 }, PROFILE, 4).pass).toBe(true);
   });
 });
 
@@ -124,10 +127,11 @@ describe("séniorité et écart d'expérience (portes)", () => {
     expect(prefilter(offer("Senior Product Manager"), PROFILE, 2)).toMatchObject({ pass: true, experienceGap: 3 });
   });
 
-  it("garde un écart de 2 ans écrit dans l'offre, écarte un écart de 3 ans", () => {
+  it("en début de carrière, 2 ans de plus écrits dans l'offre l'écartent ; ensuite, à partir de 3", () => {
     expect(prefilter(offer("Product Manager II"), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
-    expect(prefilter(offer("Product Manager", 3), PROFILE, 1)).toMatchObject({ pass: true, experienceGap: 2 });
-    expect(prefilter(offer("Product Manager", 4), PROFILE, 1)).toMatchObject({ pass: false, reason: "4 ans d'expérience demandés, 1 de ton côté : un écart que les recruteurs comblent rarement." });
+    expect(prefilter(offer("Product Manager", 3), PROFILE, 1)).toMatchObject({ pass: false, reason: "3 ans d'expérience demandés, 1 de ton côté : un écart que les recruteurs comblent rarement." });
+    expect(prefilter(offer("Product Manager", 5), PROFILE, 3)).toMatchObject({ pass: true, experienceGap: 2 });
+    expect(prefilter(offer("Product Manager", 6), PROFILE, 3).pass).toBe(false);
   });
 
   it("réduit les chances en proportion de l'écart", async () => {
@@ -207,10 +211,12 @@ describe("expérience écrite en toutes lettres", async () => {
     expect(experienceText(3, null, "junior")).toBe("3 ans et plus");
     expect(experienceText(null, null, "experienced")).toBe("Expérience significative demandée");
   });
-  it("une expérience significative compte comme quelques années d'écart, sans exclure", () => {
+  it("une expérience significative écarte un début de carrière, compte comme quelques années ensuite", () => {
     const offer = { title: "Product Manager", companyName: "Fictive", places: [{ city: "Paris", country: "FR" }], remote: "onsite" as const, remote_scope: [], contract: "cdi", experience_min_years: null, experience_level: "experienced" as const };
-    const r = prefilter(offer, { ...PROFILE, zone: { places: [], remoteOk: true }, contracts: [] }, 1);
-    expect(r.pass && r.experienceGap).toBe(3);
+    const anywhere = { ...PROFILE, zone: { places: [], remoteOk: true }, contracts: [] };
+    expect(prefilter(offer, anywhere, 1)).toMatchObject({ pass: false, reason: "L'offre demande une expérience significative : un recruteur la réserve à un profil confirmé, pas à un début de carrière." });
+    const r = prefilter(offer, anywhere, 3);
+    expect(r.pass && r.experienceGap).toBe(1);
   });
 });
 

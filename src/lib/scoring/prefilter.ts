@@ -26,6 +26,11 @@ export type GateResult =
 // From this gap on (required − real, in years) an offer is set aside rather than scored lower: a recruiter
 // bends on a year, sometimes two for a strong junior, almost never three.
 export const EXPERIENCE_GAP_EXCLUDE = 3;
+// Someone starting out (2 years or less) is not hired for a post that asks 2 more years, nor for one
+// that asks for "significant experience": the gap a recruiter bends on shrinks with the years.
+export const STARTER_YEARS = 2;
+export const gapLimit = (years: number) => (years <= STARTER_YEARS ? 2 : EXPERIENCE_GAP_EXCLUDE);
+export const WORDED_REASON = "L'offre demande une expérience significative : un recruteur la réserve à un profil confirmé, pas à un début de carrière.";
 export const gapReason = (required: number, years: number) => `${required} an${plural(required)} d'expérience demandé${plural(required)}, ${years} de ton côté : un écart que les recruteurs comblent rarement.`;
 
 // Chances cap by experience gap: up to 2 years the offer stays, with chances lowered in proportion;
@@ -82,10 +87,11 @@ export function prefilter(offer: GateInput, criteria: Criteria, experienceYears:
       return { pass: false, reason: `Intitulé trop senior pour ton expérience (${experienceYears} an${plural(experienceYears)}).` };
     }
     const required = offer.experience_min_years;
-    if (required !== null && required - experienceYears >= EXPERIENCE_GAP_EXCLUDE) {
+    if (required !== null && required - experienceYears >= gapLimit(experienceYears)) {
       return { pass: false, reason: gapReason(required, experienceYears) };
     }
-    // "Expérience significative" without a number counts as a few years asked; never enough to exclude.
+    if (required === null && offer.experience_level === "experienced" && experienceYears <= STARTER_YEARS) return { pass: false, reason: WORDED_REASON };
+    // "Expérience significative" without a number counts as a few years asked.
     const worded = required === null && offer.experience_level === "experienced" ? EXPERIENCED_YEARS : 0;
     experienceGap = Math.max(0, implied - experienceYears, (required ?? 0) - experienceYears, worded - experienceYears);
   }

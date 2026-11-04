@@ -2,14 +2,22 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CONTRACT_LABELS, Criteria, CvSummary } from "@/lib/domain/criteria";
 import type { Place, Remote } from "@/lib/domain/offer";
-import { chancesCap, EXPERIENCE_GAP_EXCLUDE, gapReason, prefilter } from "./prefilter";
+import { chancesCap, gapLimit, gapReason, prefilter, STARTER_YEARS } from "./prefilter";
 import { completeOffers, isExcerptOnly } from "@/lib/collect/complete";
+
+export const ENGLISH_REASON = "Annonce en anglais : le poste se passe sans doute en anglais, et tu préfères travailler en français.";
+// A posting in English for someone who works in English only a little: never a crush, and said so.
+export function withEnglish(row: Record<string, unknown>, english: boolean): Record<string, unknown> {
+  if (!english || row.level === "ecartee") return row;
+  const watch = ["Annonce en anglais : une partie du travail se fera sans doute en anglais.", ...((row.watch as string[] | undefined) ?? [])].slice(0, 2);
+  return { ...row, level: row.level === "coeur" ? "solide" : row.level, watch };
+}
 
 export const languageReason = (l: { language: string; quote: string }) => `L'offre demande de parler ${l.language} : « ${l.quote} ». Si tu le parles, ajoute-le à ta recherche.`;
 export const INVENTED_REASON = "L'intitulé ressemble à ton métier, mais l'offre décrit un autre métier.";
 export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";
-import { missingLanguage } from "@/lib/domain/languages";
+import { isEnglishPosting, missingLanguage, requiresNativeEnglish, speaksNativeEnglish } from "@/lib/domain/languages";
 import { inventedRoleWords, isTraining, titleRelevance } from "./relevance";
 import { judgeBatch, type Feedback, type JudgeInput, type Judgement } from "./judge";
 
@@ -190,6 +198,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     for (const d of data ?? []) fresh.set(d.id, d);
   }
   const spoken = [...criteria.languages, ...(cv?.languages ?? [])];
+  const inEnglish = new Set<string>();
   // Completed offers may now ask for more experience, or be gone: the gates are applied again.
   const regated: Record<string, unknown>[] = [];
   for (let i = candidates.length - 1; i >= 0; i--) {
@@ -222,7 +231,20 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
     }
     // A language the offer requires and the person does not speak (from their search or CV), with the
     // offer's own sentence as proof. French and English are never set aside this way.
-    const language = missingLanguage(`${c.offer.title}\n${f.description ?? ""}`, spoken);
+    const text = `${c.offer.title}\n${f.description ?? ""}`;
+    // English at a native level, or a posting in English for someone who would rather not work in it.
+    if (requiresNativeEnglish(text) && !speaksNativeEnglish(spoken)) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: "L'offre demande un anglais natif ou bilingue, au-delà du niveau de ton profil.", scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
+    if (criteria.englishWork === "non" && isEnglishPosting(f.description ?? "")) {
+      regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: ENGLISH_REASON, scored_by: "prefilter" });
+      candidates.splice(i, 1);
+      continue;
+    }
+    if (criteria.englishWork === "un_peu" && isEnglishPosting(f.description ?? "")) inEnglish.add(c.offer.id);
+    const language = missingLanguage(text, spoken);
     if (language) {
       regated.push({ ...base, offer_id: c.offer.id, level: "ecartee", excluded_reason: languageReason(language), scored_by: "prefilter" });
       candidates.splice(i, 1);
@@ -262,7 +284,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
           .map(({ offer, outOfZone, gap }) => {
-            const row = scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id);
+            const row = withEnglish(scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, results.get(offer.id)!, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id), inEnglish.has(offer.id));
             // A reason built on a role word the offer never uses ("vidéo" for a bike mechanic) is an invention.
             const why = typeof row.why === "string" ? row.why : "";
             return row.level !== "ecartee" && inventedRoleWords(why, offer.title, descriptions.get(offer.id) ?? "", criteria).length > 0
@@ -344,11 +366,14 @@ export function scoreRow(
     if (service) service.from("offers").update({ experience_min_years: found }).eq("id", offerId).is("experience_min_years", null).then(() => undefined);
     if (experienceYears !== null) {
       effectiveGap = Math.max(gap, found - experienceYears);
-      if (found - experienceYears >= EXPERIENCE_GAP_EXCLUDE) return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: gapReason(found, experienceYears), scored_by: "llm" };
+      if (found - experienceYears >= gapLimit(experienceYears)) return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: gapReason(found, experienceYears), scored_by: "llm" };
     }
   }
   // No years anywhere: the missions' level weighs as an estimate (confirmé ≈ 3 years, senior ≈ 5).
   if (knownYears === null && found === null && seniority && experienceYears !== null) effectiveGap = Math.max(effectiveGap, (seniority === "senior" ? 5 : seniority === "confirme" ? 3 : 0) - experienceYears);
+  // Missions of a senior level (read by the model) are out of reach for someone starting out.
+  if (seniority === "senior" && experienceYears !== null && experienceYears <= STARTER_YEARS)
+    return { ...base, offer_id: offerId, out_of_zone: outOfZone, ...rest, level: "ecartee", excluded_reason: "Missions de niveau senior (autonomie, encadrement, périmètre) : un recruteur les confie à un profil expérimenté.", scored_by: "llm" };
   // A crush is a match within reach: 2 years or more above the person's experience is Solide at best.
   let level = rest.level === "coeur" && effectiveGap >= 2 ? "solide" : rest.level;
   // Two years more written in the offer: a stretch, worth a try, not a solid match.
@@ -379,8 +404,12 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
   const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
   for (const offer of (offers ?? []) as unknown as (LightOffer & { description: string | null })[]) {
     const gate = prefilter({ ...offer, companyName: offer.company?.name ?? "" }, criteria, experienceYears);
-    const language = gate.pass ? missingLanguage(`${offer.title}\n${offer.description ?? ""}`, [...criteria.languages, ...(cv?.languages ?? [])]) : null;
-    if (language) rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: languageReason(language), scored_by: "prefilter" });
+    const spokenHere = [...criteria.languages, ...(cv?.languages ?? [])];
+    const textHere = `${offer.title}\n${offer.description ?? ""}`;
+    const language = gate.pass ? missingLanguage(textHere, spokenHere) : null;
+    if (gate.pass && requiresNativeEnglish(textHere) && !speaksNativeEnglish(spokenHere)) rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: "L'offre demande un anglais natif ou bilingue, au-delà du niveau de ton profil.", scored_by: "prefilter" });
+    else if (gate.pass && criteria.englishWork === "non" && isEnglishPosting(offer.description ?? "")) rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: ENGLISH_REASON, scored_by: "prefilter" });
+    else if (language) rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: languageReason(language), scored_by: "prefilter" });
     else if (gate.pass) toJudge.push({ offer, outOfZone: gate.outOfZone, gap: gate.experienceGap });
     else rows.push({ ...base, offer_id: offer.id, level: "ecartee", excluded_reason: gate.reason, scored_by: "prefilter" });
   }
@@ -408,7 +437,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
     );
     for (const { offer, outOfZone, gap } of toJudge) {
       const judged = results.get(offer.id);
-      if (judged) rows.push(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts));
+      if (judged) rows.push(withEnglish(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts), criteria.englishWork === "un_peu" && isEnglishPosting(offer.description ?? "")));
     }
   }
   if (rows.length > 0) {
