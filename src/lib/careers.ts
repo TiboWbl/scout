@@ -12,6 +12,9 @@ export type CareerIdea = { title: string; why: string; path: string; missions: s
 
 const SYSTEM = `Tu es conseiller en orientation, spécialiste des métiers en France. À partir de ce qu'une personne aime, de ce qu'elle veut faire et de son profil, propose 6 à 8 métiers concrets qui lui correspondent, en priorité ceux qui recrutent des profils juniors et qui la rapprochent de son objectif. Inclus des métiers voisins qu'elle ne connaît peut-être pas. Pour chacun : "titre" (l'intitulé tel qu'il est écrit dans les offres d'emploi en France, sans « junior »), "pourquoi" (une phrase : ce qui, dans ce qu'elle a dit ou dans son profil, colle à ce métier), "chemin" (une phrase : en quoi ce métier la prépare à son objectif), "missions" (une phrase : ce qu'on y fait au quotidien). Tutoie la personne, sois concret, n'invente rien sur son parcours. Réponds uniquement avec {"metiers": [{"titre", "pourquoi", "chemin", "missions"}]}.`;
 
+// The model's text without markdown ("*end-to-end*", "**SQL**"): the page shows plain sentences.
+const plain = (v: unknown) => String(v ?? "").replace(/\*+|`/g, "").replace(/\s+/g, " ").trim();
+
 const JUNIOR = /\b(junior|jr|associate|graduate|entry[- ]level|d[ée]butant|jeune dipl[oô]m)/i;
 
 export async function exploreCareers(
@@ -32,7 +35,7 @@ export async function exploreCareers(
   const ideas = (Array.isArray(read.metiers) ? read.metiers : [])
     .map((m) => m as Record<string, unknown>)
     .filter((m) => typeof m.titre === "string" && m.titre.trim())
-    .map((m) => ({ title: String(m.titre).replace(/\s*\(.*?\)\s*/g, " ").replace(/\bjunior\b/gi, "").replace(/\s+/g, " ").trim(), why: String(m.pourquoi ?? ""), path: String(m.chemin ?? ""), missions: String(m.missions ?? "") }))
+    .map((m) => ({ title: String(m.titre).replace(/\s*\(.*?\)\s*/g, " ").replace(/\bjunior\b/gi, "").replace(/\s+/g, " ").trim(), why: plain(m.pourquoi), path: plain(m.chemin), missions: plain(m.missions) }))
     .filter((m, i, all) => m.title && all.findIndex((o) => o.title.toLowerCase() === m.title.toLowerCase()) === i)
     .slice(0, 8);
   if (ideas.length === 0) return [];
