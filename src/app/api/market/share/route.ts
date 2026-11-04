@@ -8,7 +8,7 @@ export async function POST() {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
   const { supabase, user } = auth;
-  const { data: last } = await supabase.from("market_snapshots").select("data").eq("profile_id", user.id).order("day", { ascending: false }).limit(1).maybeSingle();
+  const { data: last } = await supabase.from("market_snapshots").select("data").eq("profile_id", user.id).eq("role", "").order("day", { ascending: false }).limit(1).maybeSingle();
   if (!last) return NextResponse.json({ error: "Ton marché n'est pas encore prêt." }, { status: 404 });
   const m = last.data as MarketData;
   const card: MarketData = { ...m, mine: 0, skills: m.skills.map((s) => ({ ...s, inCv: false, mine: 0 })) };

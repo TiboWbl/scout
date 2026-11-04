@@ -11,8 +11,9 @@ export type Snapshot = { day: string; data: MarketData };
 // The first day a picture of this person's market can be trusted.
 export const historyStart = (historyFrom: string | null) => (historyFrom && historyFrom > MARKET_START ? historyFrom : MARKET_START);
 
-export async function snapshots(db: SupabaseClient, profileId: string): Promise<Snapshot[]> {
-  const { data } = await db.from("market_snapshots").select("day, data").eq("profile_id", profileId).order("day", { ascending: false }).limit(60);
+// `role`: '' for the first role sought (with its equivalent titles), or the name of another role sought.
+export async function snapshots(db: SupabaseClient, profileId: string, role = ""): Promise<Snapshot[]> {
+  const { data } = await db.from("market_snapshots").select("day, data").eq("profile_id", profileId).eq("role", role).order("day", { ascending: false }).limit(60);
   return (data ?? []) as Snapshot[];
 }
 
@@ -25,7 +26,7 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   const known = await snapshots(db, profileId);
   const today = await computeMarket(set, criteria, { cvText: inputs.cvText, cvSkills: inputs.cvSkills, selection: inputs.selection, confirmed: inputs.confirmed });
 
-  const rows = [{ profile_id: profileId, day: today.day, data: today }];
+  const rows: { profile_id: string; day: string; role?: string; data: MarketData }[] = [{ profile_id: profileId, day: today.day, data: today }];
 
   // History once a week back to the start (or to the day Scout started collecting these roles), for
   // the days not kept yet or counted another way.
@@ -41,7 +42,30 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
     if (days.has(day)) continue;
     rows.push({ profile_id: profileId, day, data: await computeMarket(set, criteria, { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed }) });
   }
-  const { error } = await db.from("market_snapshots").upsert(rows, { onConflict: "profile_id,day" });
+  // The other roles sought, each on its own: the role alone, without the first role's equivalent titles.
+  // Their history starts the day they are first counted.
+  const others = otherRoles(criteria);
+  for (const role of others) rows.push({ profile_id: profileId, day: today.day, role, data: await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed }) });
+  const { error } = await db.from("market_snapshots").upsert(rows.map((r) => ({ role: "", ...r })), { onConflict: "profile_id,day,role" });
+  if (error) throw error;
+  // A role no longer sought: its pictures go.
+  const { data: kept } = await db.from("market_snapshots").select("role").eq("profile_id", profileId).neq("role", "");
+  const gone = [...new Set((kept ?? []).map((r) => r.role as string))].filter((r) => !others.includes(r));
+  if (gone.length) await db.from("market_snapshots").delete().eq("profile_id", profileId).in("role", gone);
+  return today;
+}
+
+// At most three other roles, so the daily job stays short.
+export const otherRoles = (c: Criteria) => [...new Set(c.targetRoles.slice(1).map((r) => r.trim()).filter((r) => r && r.toLowerCase() !== c.targetRoles[0]?.trim().toLowerCase()))].slice(0, 3);
+const roleCriteria = (c: Criteria, role: string): Criteria => ({ ...c, targetRoles: [role], titleVariants: [] });
+
+// One other role's picture of today, when it is opened before the daily job counted it.
+export async function refreshRole(db: SupabaseClient, set: MarketDataset, profileId: string, role: string) {
+  const inputs = await profileInputs(db, profileId);
+  const criteria = Criteria.parse(inputs.criteria ?? {});
+  if (!otherRoles(criteria).includes(role)) return null;
+  const today = await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed });
+  const { error } = await db.from("market_snapshots").upsert({ profile_id: profileId, day: today.day, role, data: today }, { onConflict: "profile_id,day,role" });
   if (error) throw error;
   return today;
 }

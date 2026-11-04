@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
   if (error) return NextResponse.json({ error: "Enregistrement impossible" }, { status: 500 });
   // A new role: its market is ready when the person opens it, without waiting for the daily job.
-  if (before?.targetRoles[0] !== c.targetRoles[0]) {
+  if (JSON.stringify(before?.targetRoles ?? []) !== JSON.stringify(c.targetRoles)) {
     after(async () => {
       const db = createAdminClient();
       await refreshMarket(db, await loadMarketDataset(db), user.id).catch(() => null);

@@ -14,7 +14,7 @@ const { data: profiles } = await db.from("profiles").select("id").not("onboarded
 // One picture a day: the market moves slowly, and loading every offer is the free plan's costliest read.
 // A new role gets its market as soon as it is saved, without waiting for this job.
 const day = new Date().toISOString().slice(0, 10);
-const { count } = await db.from("market_snapshots").select("profile_id", { count: "exact", head: true }).eq("day", day);
+const { count } = await db.from("market_snapshots").select("profile_id", { count: "exact", head: true }).eq("day", day).eq("role", "");
 // `--force`: computed again today, after a change in the counting rules.
 if (!process.argv.includes("--force") && (count ?? 0) >= (profiles?.length ?? 0)) {
   console.log("Marchés : déjà à jour aujourd'hui");

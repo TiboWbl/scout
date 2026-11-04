@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Criteria } from "@/lib/domain/criteria";
 import type { Insight, MarketInsights } from "@/lib/market/advice";
+import { otherRoles } from "@/lib/market/store";
 import { marketPage } from "@/lib/market/view";
 import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "./blocks";
 import { MarketSkills } from "./skills";
@@ -13,8 +14,14 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "n
 
 // The market of the role sought: what the offers really ask for, how it moves, what it means for the
 // person this week. Counted in the offers themselves, every figure can be checked.
-export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient; userId: string; base?: string }) {
-  const page = await marketPage(db, userId);
+export async function MarketView({ db, userId, base = "", metier }: { db: SupabaseClient; userId: string; base?: string; metier?: string }) {
+  // What "your market" covers: the role and the titles counted as the same job; each other role sought
+  // has its own market, chosen above the page.
+  const { data: profile } = await db.from("profiles").select("criteria").eq("id", userId).single();
+  const sought = Criteria.safeParse(profile?.criteria).data;
+  const others = sought ? otherRoles(sought) : [];
+  const role = metier && others.includes(metier) ? metier : "";
+  const page = await marketPage(db, userId, role);
   if (!page) {
     return (
       <div className="px-1 pb-16 pt-3 md:px-2">
@@ -24,14 +31,28 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
     );
   }
   const { today: m, trend, since, insights, cvKnown } = page;
-  // What "your market" covers: the role and the titles counted as the same job.
-  const { data: profile } = await db.from("profiles").select("criteria").eq("id", userId).single();
-  const sought = Criteria.safeParse(profile?.criteria).data;
-  const variants = (sought?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
-  const others = (sought?.targetRoles ?? []).slice(1);
+  const variants = role ? [] : (sought?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
+  const first = sought?.targetRoles[0] ?? m.role;
   const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
+      {others.length > 0 && (
+        <nav aria-label="Tes métiers visés" className="mb-4 inline-flex flex-wrap gap-y-1 rounded-xl border border-line bg-surface p-1">
+          {[first, ...others].map((r, i) => {
+            const on = i === 0 ? role === "" : role === r;
+            return (
+              <Link
+                key={r}
+                href={i === 0 ? `${base}/marche` : `${base}/marche?metier=${encodeURIComponent(r)}`}
+                aria-current={on ? "page" : undefined}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${on ? "bg-button text-button-ink" : "text-muted hover:text-ink"}`}
+              >
+                {r}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché : {m.role}</h1>
@@ -40,7 +61,6 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
             {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
             <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.
           </p>
-          {others.length > 0 && <p className="mt-1 max-w-[68ch] text-[14px] text-muted">Tes autres métiers visés ({others.join(", ")}) ont leurs propres compétences : ils ne sont pas comptés ici.</p>}
           {m.total < SMALL_MARKET && (
             <p className="mt-2 max-w-3xl rounded-xl bg-pill-solid px-3.5 py-2.5 text-[14px]">
               Un petit marché : chaque offre pèse {Math.max(1, Math.round(100 / Math.max(1, m.total)))} % ou plus. Les tendances fortes sont fiables, les petits écarts beaucoup moins : le nombre d&apos;offres est indiqué à côté de chaque part.
@@ -56,7 +76,7 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
             </p>
           )}
         </div>
-        {base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
+        {role ? null : base ? demoCard && <ShareMarket demoCard={demoCard} /> : <ShareMarket />}
       </div>
 
       {insights.coverage.of > 0 &&

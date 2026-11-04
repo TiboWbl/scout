@@ -196,7 +196,7 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
     }
   }
   // A shared market card, as Camille would share it: refreshed each day from her latest market.
-  const { data: snap } = await db.from("market_snapshots").select("data").eq("profile_id", userId).order("day", { ascending: false }).limit(1).maybeSingle();
+  const { data: snap } = await db.from("market_snapshots").select("data").eq("profile_id", userId).eq("role", "").order("day", { ascending: false }).limit(1).maybeSingle();
   const { data: card } = await db.from("market_cards").select("id, created_at").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (snap?.data && (!card || Date.now() - Date.parse(card.created_at) > 20 * 3600_000)) {
     const m = snap.data as { mine: number; skills: Record<string, unknown>[] };

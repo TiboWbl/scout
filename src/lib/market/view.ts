@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { marketInsights, type MarketInsights } from "./advice";
 import { loadMarketDataset, MARKET_METHOD, profileInputs, type MarketData } from "./compute";
 import { inCvCheck } from "@/lib/views/skills";
-import { historyStart, refreshMarket, snapshots } from "./store";
+import { historyStart, refreshMarket, refreshRole, snapshots } from "./store";
 
 const DAY = 86_400_000;
 
@@ -28,11 +28,13 @@ export async function marketForCv(db: SupabaseClient, userId: string): Promise<{
 
 // The latest picture, compared with the one about a week before (or the oldest kept). The very first
 // visit computes it on the spot; the daily job keeps it fresh afterwards.
-export async function marketPage(db: SupabaseClient, userId: string): Promise<MarketPage | null> {
-  let kept = await snapshots(db, userId);
+// `role`: another role sought ('' or nothing: the first role, with its equivalent titles).
+export async function marketPage(db: SupabaseClient, userId: string, role = ""): Promise<MarketPage | null> {
+  let kept = await snapshots(db, userId, role);
   if (kept.length === 0) {
-    await refreshMarket(db, await loadMarketDataset(db), userId);
-    kept = await snapshots(db, userId);
+    const set = await loadMarketDataset(db);
+    await (role ? refreshRole(db, set, userId, role) : refreshMarket(db, set, userId));
+    kept = await snapshots(db, userId, role);
   }
   const latest = kept[0]?.data;
   if (!latest) return null;
