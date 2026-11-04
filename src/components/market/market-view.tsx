@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Criteria } from "@/lib/domain/criteria";
 import type { Insight, MarketInsights } from "@/lib/market/advice";
-import { otherRoles } from "@/lib/market/store";
+import { job, otherRoles } from "@/lib/market/store";
 import { marketPage } from "@/lib/market/view";
 import { CompaniesBlock, ContractsBlock, ExperienceBlock, RemoteBlock, SalaryBlock } from "./blocks";
 import { MarketSkills } from "./skills";
@@ -31,8 +31,7 @@ export async function MarketView({ db, userId, base = "", metier }: { db: Supaba
     );
   }
   const { today: m, trend, since, insights, cvKnown } = page;
-  const variants = role ? [] : (sought?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
-  const first = sought?.targetRoles[0] ?? m.role;
+  const first = role ? job(sought?.targetRoles[0] ?? "") || m.role : m.role;
   const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
@@ -57,8 +56,7 @@ export async function MarketView({ db, userId, base = "", metier }: { db: Supaba
         <div>
           <h1 className="font-display text-4xl font-extrabold md:text-5xl tracking-tight">Ton marché : {m.role}</h1>
           <p className="mt-2 max-w-[68ch] text-[15px] text-muted">
-            Les offres de {m.role}
-            {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
+            Les offres dont l&apos;intitulé nomme {m.role} (junior, senior ou sans niveau), en France, tous contrats confondus, et aucun autre métier :{" "}
             <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.
           </p>
           {m.total < SMALL_MARKET && (

@@ -117,7 +117,7 @@ export function CareerExplorer({
                     ) : (
                       <>
                         <button type="button" onClick={() => add(idea.title, "targetRoles")} disabled={adding !== null} className="btn-soft py-1.5 text-[13px] disabled:opacity-50">
-                          Ajouter comme métier visé
+                          Ajouter à mes métiers
                         </button>
                         <button type="button" onClick={() => add(idea.title, "bridgeRoles")} disabled={adding !== null} className="btn-soft py-1.5 text-[13px] disabled:opacity-50">
                           Ajouter comme passerelle
@@ -131,10 +131,10 @@ export function CareerExplorer({
           </ul>
           <p className="mt-3 text-[13px] text-muted">
             {page
-              ? "Métier visé : ses offres peuvent être des coups de cœur. Passerelle : un poste qui te rapproche de ton objectif, rangé en Tremplin. Scout trie les offres dès l'ajout."
+              ? "Ajouté à tes métiers : ses offres peuvent être des coups de cœur, et il a son propre marché. Passerelle : un poste qui te rapproche de ton objectif, rangé en Tremplin. Scout trie les offres dès l'ajout."
               : ideas.some((i) => inSearch(i.title))
                 ? "Pense à enregistrer ta recherche : Scout triera alors les offres de ces métiers."
-                : "Métier visé : ses offres peuvent être des coups de cœur. Passerelle : rangé en Tremplin."}
+                : "Ajouté à tes métiers : ses offres peuvent être des coups de cœur. Passerelle : rangé en Tremplin."}
           </p>
         </>
       )}

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Criteria } from "@/lib/domain/criteria";
+import { core } from "@/lib/scoring/relevance";
 import { computeMarket, MARKET_METHOD, profileInputs, type MarketData, type MarketDataset } from "./compute";
 
 const DAY = 86_400_000;
@@ -24,7 +25,8 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   const criteria = Criteria.parse(inputs.criteria ?? {});
   if (criteria.targetRoles.length === 0) return null;
   const known = await snapshots(db, profileId);
-  const today = await computeMarket(set, criteria, { cvText: inputs.cvText, cvSkills: inputs.cvSkills, selection: inputs.selection, confirmed: inputs.confirmed });
+  const main = roleCriteria(criteria, job(criteria.targetRoles[0]) || criteria.targetRoles[0]);
+  const today = await computeMarket(set, main, { cvText: inputs.cvText, cvSkills: inputs.cvSkills, selection: inputs.selection });
 
   const rows: { profile_id: string; day: string; role?: string; data: MarketData }[] = [{ profile_id: profileId, day: today.day, data: today }];
 
@@ -40,12 +42,20 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   for (const t of back) {
     const day = new Date(t).toISOString().slice(0, 10);
     if (days.has(day)) continue;
-    rows.push({ profile_id: profileId, day, data: await computeMarket(set, criteria, { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed }) });
+    rows.push({ profile_id: profileId, day, data: await computeMarket(set, main, { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills }) });
   }
   // The other roles sought, each on its own: the role alone, without the first role's equivalent titles.
   // Their history starts the day they are first counted.
   const others = otherRoles(criteria);
-  for (const role of others) rows.push({ profile_id: profileId, day: today.day, role, data: await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed }) });
+  for (const role of others) {
+    rows.push({ profile_id: profileId, day: today.day, role, data: await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills }) });
+    // Its history too, from what was online each day, for the days not counted yet this way.
+    const kept = new Set((await snapshots(db, profileId, role)).filter((s) => s.data.method === MARKET_METHOD).map((s) => s.day));
+    for (const t of back) {
+      const day = new Date(t).toISOString().slice(0, 10);
+      if (!kept.has(day)) rows.push({ profile_id: profileId, day, role, data: await computeMarket(set, roleCriteria(criteria, role), { at: new Date(t), cvText: inputs.cvText, cvSkills: inputs.cvSkills }) });
+    }
+  }
   const { error } = await db.from("market_snapshots").upsert(rows.map((r) => ({ role: "", ...r })), { onConflict: "profile_id,day,role" });
   if (error) throw error;
   // A role no longer sought: its pictures go.
@@ -55,8 +65,20 @@ export async function refreshMarket(db: SupabaseClient, set: MarketDataset, prof
   return today;
 }
 
-// At most three other roles, so the daily job stays short.
-export const otherRoles = (c: Criteria) => [...new Set(c.targetRoles.slice(1).map((r) => r.trim()).filter((r) => r && r.toLowerCase() !== c.targetRoles[0]?.trim().toLowerCase()))].slice(0, 3);
+// The other jobs the person likes, each with its own market: the job itself, without a qualifier or a
+// level ("Product Manager Junior" is the Product Manager market). At most five, so the daily job stays short.
+export const job = (r: string) => core(r).replace(/\b(junior|jr|senior|sr|confirm[ée]e?|stagiaire|alternant|alternance|stage|h\s*\/\s*f|f\s*\/\s*h)\b/gi, " ").replace(/\s+/g, " ").trim();
+export function otherRoles(c: Criteria): string[] {
+  const first = job(c.targetRoles[0] ?? "").toLowerCase();
+  const seen = new Set([first]);
+  const out: string[] = [];
+  for (const r of c.targetRoles.slice(1).map(job)) {
+    if (!r || seen.has(r.toLowerCase())) continue;
+    seen.add(r.toLowerCase());
+    out.push(r);
+  }
+  return out.slice(0, 5);
+}
 const roleCriteria = (c: Criteria, role: string): Criteria => ({ ...c, targetRoles: [role], titleVariants: [] });
 
 // One other role's picture of today, when it is opened before the daily job counted it.
@@ -64,7 +86,7 @@ export async function refreshRole(db: SupabaseClient, set: MarketDataset, profil
   const inputs = await profileInputs(db, profileId);
   const criteria = Criteria.parse(inputs.criteria ?? {});
   if (!otherRoles(criteria).includes(role)) return null;
-  const today = await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills, confirmed: inputs.confirmed });
+  const today = await computeMarket(set, roleCriteria(criteria, role), { cvText: inputs.cvText, cvSkills: inputs.cvSkills });
   const { error } = await db.from("market_snapshots").upsert({ profile_id: profileId, day: today.day, role, data: today }, { onConflict: "profile_id,day,role" });
   if (error) throw error;
   return today;

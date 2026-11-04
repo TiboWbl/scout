@@ -7,8 +7,8 @@ const COUNTRY_NAMES: Record<string, string> = { FR: "France", US: "États-Unis",
 const CRITERIA_SYSTEM = `Tu aides une personne à formaliser sa recherche d'emploi. Tu reçois sa description en langage naturel et, parfois, un résumé de son CV (sans données personnelles).
 Réponds uniquement avec un objet JSON de cette forme :
 {
-  "targetRoles": [1 à 3 métiers visés, intitulés courts et génériques, sans niveau (pas "junior"), jamais une phrase],
-  "titleVariants": [6 à 14 intitulés équivalents tels qu'ils apparaissent dans de vraies offres, en français ET en anglais : d'abord TOUS ceux que la personne cite, puis les niveaux d'entrée (junior, associate) et sigles usuels. Sans intitulés seniors, sans parenthèses ni précisions, sans répéter les métiers visés],
+  "targetRoles": [les métiers que la personne veut faire, 1 à 5 : son métier prioritaire d'abord, puis les autres métiers qu'elle cite vouloir faire. Intitulés courts et génériques, sans niveau (pas "junior"), jamais une phrase],
+  "titleVariants": [6 à 14 autres façons d'écrire CES MÊMES métiers, telles qu'elles apparaissent dans de vraies offres, en français ET en anglais : traductions, sigles usuels, niveaux d'entrée (junior, associate). Jamais un autre métier (il va dans targetRoles). Sans intitulés seniors, sans parenthèses ni précisions, sans répéter les métiers visés],
   "bridgeRoles": [métiers passerelles : TOUS ceux que la personne cite, avec ses mots ; si elle n'en cite aucun, 0 à 4 évidents],
   "sectorsPriority": [secteurs que la personne préfère],
   "sectorsOk": [secteurs explicitement acceptés, sinon vide],

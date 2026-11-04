@@ -256,3 +256,12 @@ describe("compétences et accents", () => {
     expect(byKind.outil.find((s) => s.key === "reel")?.count).toBe(2);
   });
 });
+
+describe("un marché par métier", () => {
+  it("chaque autre métier a son marché, sans niveau ni précision ni doublon", async () => {
+    const { otherRoles } = await import("@/lib/market/store");
+    const { Criteria } = await import("@/lib/domain/criteria");
+    const c = Criteria.parse({ targetRoles: ["Product Manager", "Product Manager Junior", "Customer Success Manager - Produits SaaS", "Business Analyst (tech)"] });
+    expect(otherRoles(c)).toEqual(["Customer Success Manager", "Business Analyst"]);
+  });
+});

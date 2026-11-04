@@ -7,8 +7,8 @@ import { Criteria, CvSummary } from "@/lib/domain/criteria";
 const DEMO_EMAIL = "camille.demo@scout.invalid";
 
 export const DEMO_CRITERIA = Criteria.parse({
-  targetRoles: ["Product Manager"],
-  titleVariants: ["Junior Product Manager", "Associate Product Manager", "Chef de produit digital", "Product Owner"],
+  targetRoles: ["Product Manager", "Product Owner"],
+  titleVariants: ["Junior Product Manager", "Associate Product Manager", "Chef de produit digital", "PO"],
   bridgeRoles: ["Product Analyst", "UX Researcher"],
   sectorsPriority: ["Santé", "Mobilité", "Éducation"],
   sectorsAvoid: ["Jeux d'argent"],

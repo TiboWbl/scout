@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 const MAX_BASE = 1500;
 // The way the figures are counted. Pictures counted another way are never compared with today's:
 // a change of method is not a change of the market.
-export const MARKET_METHOD = 4;
+export const MARKET_METHOD = 5;
 
 export type Range = { low: number; median: number; high: number; n: number };
 export type MarketSkill = SkillStat & { mine: number };
@@ -128,13 +128,14 @@ function range(values: number[]): Range | null {
 export async function computeMarket(
   set: MarketDataset,
   criteria: Criteria,
-  { at = new Date(), cvText = "", cvSkills = [], selection = [], confirmed = [] }: { at?: Date; cvText?: string; cvSkills?: string[]; selection?: string[]; confirmed?: string[] } = {},
+  { at = new Date(), cvText = "", cvSkills = [], selection = [] }: { at?: Date; cvText?: string; cvSkills?: string[]; selection?: string[]; confirmed?: string[] } = {},
 ): Promise<MarketData> {
   const t = at.getTime();
   const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
-  // The market of one job: the first role sought and the titles that say the same job. Another role sought
-  // (a Business Analyst beside a Product Manager) has its own offers and skills, never mixed in.
-  const roleOnly = { ...criteria, targetRoles: criteria.targetRoles.slice(0, 1), bridgeRoles: [] };
+  // The market of one job: the offers whose title names it ("Product Manager", "Senior Product Manager",
+  // "Associate Product Manager"), nothing else. Another job, even close, has its own market: mixing them
+  // would give figures true of no job.
+  const roleOnly = { ...criteria, targetRoles: criteria.targetRoles.slice(0, 1), titleVariants: [], bridgeRoles: [] };
   const relevance = new Map<string, number>();
   const isRole = (title: string) => {
     if (!relevance.has(title)) relevance.set(title, titleRelevance(title, roleOnly));
@@ -146,10 +147,7 @@ export async function computeMarket(
   // Only offers read in full count: an engine's 500-character excerpt would skew every figure.
   // The role itself: named in full by the title, or in part with the rest in the text ("Chef de projet"
   // saying "digital"); one shared word alone ("Designer") is another job.
-  // Or a title close to the role that the model confirmed as the person's job ("Monteur audiovisuel",
-  // "Cadreur monteur" for a video editor): creative and trade titles vary far more than the variants listed.
-  const sure = new Set(confirmed);
-  const named = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && (namesRole(r.title, texts.get(r.id) ?? "", roleOnly) || sure.has(r.id)));
+  const named = online.filter((r) => !isExcerptOnly({ description: texts.get(r.id) ?? null, sources: r.sources }) && namesRole(r.title, texts.get(r.id) ?? "", roleOnly));
   // One posting, one count: the same text found twice (an engine's copy of the employer's page, the
   // same job posted twice) would weigh double in every share. The employer's own page is kept.
   const byText = new Map<string, Row>();

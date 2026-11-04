@@ -118,10 +118,13 @@ export function CriteriaEditor({ value, onChange }: { value: Criteria; onChange:
 
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-      <Section title="Métier visé" hint="Les intitulés équivalents servent à trouver les offres, même formulées autrement.">
-        <Chips values={value.targetRoles} onChange={(v) => set("targetRoles", v)} placeholder="Ajouter un métier" label="Ajouter un métier visé" />
-        <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Intitulés équivalents</p>
-        <Chips values={value.titleVariants} onChange={(v) => set("titleVariants", v)} placeholder="Ajouter un intitulé" label="Ajouter un intitulé équivalent" />
+      <Section title="Métier prioritaire" hint="Ton métier n°1 : Mon CV se compare à son marché. Chaque métier qui te plaît a son propre marché.">
+        <Chips values={value.targetRoles.slice(0, 1)} onChange={(v) => set("targetRoles", v.length === 0 ? value.targetRoles.slice(1) : [v[v.length - 1], ...value.targetRoles.filter((r) => r !== v[v.length - 1])])} placeholder="Ajouter ton métier n°1" label="Choisir ton métier prioritaire" />
+        <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Autres métiers qui te plaisent</p>
+        <Chips values={value.targetRoles.slice(1)} onChange={(v) => set("targetRoles", [...value.targetRoles.slice(0, 1), ...v])} placeholder="Ajouter un métier" label="Ajouter un métier qui te plaît" />
+        <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Autres façons d&apos;écrire ces métiers</p>
+        <p className="-mt-1 mb-2 text-[12.5px] text-muted">En anglais, en sigle, au niveau junior : elles servent à trouver les offres, jamais à compter un marché.</p>
+        <Chips values={value.titleVariants} onChange={(v) => set("titleVariants", v)} placeholder="Ajouter un intitulé" label="Ajouter une autre façon d'écrire" />
         <p className="mb-2 mt-4 text-[13px] font-medium text-muted">Métiers passerelles acceptés</p>
         <Chips values={value.bridgeRoles} onChange={(v) => set("bridgeRoles", v)} placeholder="Ajouter une passerelle" label="Ajouter un métier passerelle" />
       </Section>
