@@ -342,3 +342,16 @@ describe("en début de carrière, un coup de cœur est une offre ouverte à son 
     expect(forStarter(row("coeur"), { years: 4, stated: null, juniorSignal: false, seniority: "confirme" }).level).toBe("coeur");
   });
 });
+
+describe("niveau écrit : une première expérience d'un domaine n'est pas un poste junior", async () => {
+  const { detectExperienceLevel } = await import("@/lib/domain/signals");
+  it.each([
+    ["Expérience de Product Manager confirmée, ou première expérience en banque en ligne / fintech.", "experienced"],
+    ["Première expérience en product management (stage ou alternance acceptés).", "junior"],
+    ["Profil junior ou confirmé, tu as une première expérience.", "junior"],
+    ["Une première expérience dans la santé serait un plus.", "junior"],
+    ["Expérience significative en gestion de produit.", "experienced"],
+  ] as const)("« %s » → %s", (text, level) => {
+    expect(detectExperienceLevel(text)).toBe(level);
+  });
+});

@@ -139,6 +139,7 @@ const Item = z.object({
   deal_breaker: Text,
   deal_breaker_concerne: Text,
   citation_deal_breaker: Text,
+  prerequis_manquant: Text,
   secteur_evite_concerne: Text,
   citation_secteur: Text,
   score_interet: Score,
@@ -224,6 +225,7 @@ Réponds à ces questions pour chaque offre :
 - "correspondance" : les missions réelles sont-elles celles d'un des métiers visés ou de leurs variantes ("metier_vise"), d'un métier passerelle du profil ou de la même famille, ou d'un poste au contact du produit et des utilisateurs dans un secteur prioritaire ("passerelle"), ou d'autre chose ("autre") ? Un intitulé présent dans les listes du profil, avec les missions habituelles de ce métier, n'est jamais "autre", même si le poste est très opérationnel ou demande plus d'expérience. Le domaine du produit (cloud, sécurité, IA, finance…) ne change pas le métier : il joue seulement sur "secteur" et score_interet.
 - "secteur" : le secteur de l'entreprise est-il "prioritaire", "accepte", "a_eviter" ou "autre" pour la personne ? "a_eviter" seulement s'il correspond à un élément de secteurs_a_eviter : recopie cet élément mot pour mot dans "secteur_evite_concerne", et dans "citation_secteur" la phrase exacte de l'offre qui le montre. Un secteur simplement absent des secteurs prioritaires est "autre", jamais "a_eviter". Le secteur est celui du produit ou du service de l'entreprise qui recrute, jamais celui de ses clients : un cabinet de conseil, une ESN, une agence ou un cabinet de recrutement relèvent du conseil ou du service, même s'ils ont des clients dans la santé ou le sport. "prioritaire" seulement si l'entreprise elle-même est dans un des secteurs_prioritaires : recopie cet élément mot pour mot dans "secteur_prioritaire_concerne".
 - "piege" : une phrase de 12 mots maximum si l'intitulé est trompeur (missions sans rapport avec le titre, poste commercial déguisé, métier d'un autre domaine sous un intitulé familier), sinon null. Le secteur, le type de clients (B2B, B2C), la technologie (IA, data, crypto) ou le niveau technique ne sont jamais un piège : un Product Manager B2B ou IA reste un Product Manager.
+- "prerequis_manquant" : la phrase exacte de l'offre, recopiée mot pour mot, qui exige quelque chose que le profil ne montre pas et sans quoi un recruteur ne le convoquerait pas : une expérience d'un secteur ou d'un domaine précis (« première expérience en fintech »), une expertise, un outil, un diplôme ou une certification. Une compétence souhaitée (« un plus ») ou que le profil possède ne compte pas. Sinon null.
 - "deal_breaker" : une phrase de 12 mots maximum si l'offre heurte clairement un deal-breaker du profil, sinon null ; recopie ce deal-breaker mot pour mot dans "deal_breaker_concerne", et dans "citation_deal_breaker" la phrase exacte de l'offre qui le prouve. Sans phrase de l'offre qui le prouve, ce n'est pas un deal-breaker. Un secteur non prioritaire n'est jamais un deal-breaker.
 
 Scores, entiers de 0 à 100 (jamais sur 10) :
@@ -246,7 +248,7 @@ Rédige en français, en texte brut sans Markdown (pas d'astérisques), tutoieme
 - "en_bref" : la raison principale en 12 mots maximum (ex. « Poste commercial, pas de produit » ou « Produit digital santé, équipe structurée »).
 - "points_d_attention" contient le piège s'il y en a un : 0 à 2 éléments de 10 mots maximum.
 - "niveau_missions" : d'après les responsabilités décrites (autonomie, encadrement, périmètre, interlocuteurs), le poste est-il "junior", "confirme" ou "senior" ? Juge sur les missions, pas sur l'intitulé.
-Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_d_attention", "secteur_prioritaire_concerne", "niveau_missions"}]} avec un élément par offre reçue, dans le même ordre.`;
+Réponds uniquement avec {"resultats": [{"id", "correspondance", "secteur", "secteur_evite_concerne", "citation_secteur", "piege", "deal_breaker", "deal_breaker_concerne", "citation_deal_breaker", "prerequis_manquant", "missions", "salaire", "experience_demandee", "citation_experience", "contrat", "citation_contrat", "en_bref", "activite_entreprise", "competences", "score_interet", "score_chances", "score_tremplin", "pourquoi", "reserve", "points_d_attention", "secteur_prioritaire_concerne", "niveau_missions"}]} avec un élément par offre reçue, dans le même ordre.`;
 
 const REQUIREMENTS_HEADER = /^(.{0,40})(profil recherch|ce que nous recherchons|qualifications?|requirements|what we('re| are) looking for|about you|your profile|who you are|you (have|are)|must[- ]have|tu es|vous [eê]tes|comp[ée]tences requises)/im;
 
@@ -369,7 +371,11 @@ export async function judgeBatch(
         ? item.deal_breaker
         : null;
     const facts: Facts = { match, sector, trap, dealBreaker, chances: item.score_chances, favorite: input.favorite, reach };
-    const { level, reason } = deriveLevel(facts, criteria);
+    const derived = deriveLevel(facts, criteria);
+    // A firm requirement the profile does not meet, quoted from the offer: Tremplin at best, and said.
+    const missing = !input.excerpt && quoted(item.prerequis_manquant) ? plain(item.prerequis_manquant!).replace(/^[•\-–\s]+/, "").slice(0, 160) : null;
+    const level = missing && (derived.level === "coeur" || derived.level === "solide") ? "tremplin" : derived.level;
+    const reason = derived.reason;
     const [interet, chances, tremplin] = to100(item, level);
     // A deal-breaker the posting does not prove stays visible as something to check.
     const unproven = item.deal_breaker && !dealBreaker ? [`À vérifier : ${item.deal_breaker}`] : [];
@@ -390,6 +396,7 @@ export async function judgeBatch(
     const modelNote = item.reserve && !/align|correspond|coherent|adapte|ok\b|exp[ée]rience|\bans?\b|years?/i.test(item.reserve) ? plain(item.reserve) : null;
     const reservation = experienceNote ?? modelNote;
     const watch = [
+      ...(missing ? [`Prérequis que ton profil ne montre pas : « ${missing} »`] : []),
       ...(item.piege && !item.points_d_attention.includes(item.piege) ? [item.piege] : []),
       ...unproven,
       ...(reservation && !item.points_d_attention.includes(reservation) ? [reservation] : []),

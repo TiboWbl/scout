@@ -129,12 +129,19 @@ export type ExperienceLevel = "junior" | "experienced";
 const JUNIOR_TEXT =
   /\b(profils? junior|junior accepte|postes? junior|peu experimente|premiere experience|1ere experience|jeune diplome|debutant|sortie? d['’ ]ecole|fraichement diplome|entry[- ]level|new grad|graduate program|recent graduate|no (prior )?experience (is )?required|early[- ]career)/;
 const EXPERIENCED_TEXT =
-  /\b(experience (professionnelle )?(significative|solide|confirmee|averee|reussie|consequente|importante|approfondie|probante)|(solide|forte|riche|longue|vraie) experience|profils? (confirme|experimente|senior)|vous etes experimente|tu es experimente|plusieurs annees d['’ ]experience|significant experience|extensive experience|proven (track record|experience)|strong (track record|experience)|seasoned|several years of experience|experienced (product|professional|pm))/;
+  /\b(experience (professionnelle )?(significative|solide|confirmee|averee|reussie|consequente|importante|approfondie|probante)|experiences? (de|en|comme) [a-z' -]{2,40} (confirmee|significative|solide|reussie)|(solide|forte|riche|longue|vraie) experience|profils? (confirme|experimente|senior)|vous etes experimente|tu es experimente|plusieurs annees d['’ ]experience|significant experience|extensive experience|proven (track record|experience)|strong (track record|experience)|seasoned|several years of experience|experienced (product|professional|pm))/;
+
+// "Première expérience en fintech" asks for experience of a field, not a beginner: it opens the post to
+// a junior only when no experienced profile is asked beside it.
+const FIELD_FIRST = /\b(premiere|1ere) experience (en|dans|chez|sur|d['’ ]une?|au sein)\b/;
 
 export function detectExperienceLevel(description: string): ExperienceLevel | null {
   const n = norm(description);
-  if (JUNIOR_TEXT.test(n)) return "junior";
-  if (EXPERIENCED_TEXT.test(n)) return "experienced";
+  const experienced = EXPERIENCED_TEXT.test(n);
+  // Junior wins when both appear ("junior ou confirmé"), unless its only sign is a field's first experience.
+  const junior = JUNIOR_TEXT.test(n.replace(FIELD_FIRST, " ")) || (FIELD_FIRST.test(n) && !experienced);
+  if (junior) return "junior";
+  if (experienced) return "experienced";
   return null;
 }
 
