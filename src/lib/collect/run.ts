@@ -131,7 +131,13 @@ export async function scopeFromProfiles(db: SupabaseClient): Promise<Scope> {
     if (row.is_demo) continue;
     const place = c.zone.places.find((p) => p.kind !== "country") ?? c.zone.places[0] ?? null;
     const where = place?.label ?? null;
-    perPerson.push([...c.targetRoles, ...c.titleVariants].map((what) => ({ what: what.trim(), where, country: place?.country ?? null })));
+    // Starting out (2 years or less): the search engines are asked for junior posts first, since a plain
+    // "Product Manager" search fills up with confirmed and senior ones.
+    const titles = [...c.targetRoles, ...c.titleVariants, ...c.bridgeRoles.slice(0, 2)];
+    const starter = c.experienceYears !== null && c.experienceYears <= 2;
+    const junior = (t: string) => (/\b(junior|jr|associate|graduate|d[ée]butant|stagiaire|alternan)\b/i.test(t) ? t : `${t} junior`);
+    const wanted = starter ? [...new Set([...titles.map(junior), ...c.targetRoles])] : [...c.targetRoles, ...c.titleVariants];
+    perPerson.push(wanted.map((what) => ({ what: what.trim(), where, country: place?.country ?? null })));
   }
   const queries: SearchQuery[] = [];
   const seen = new Set<string>();
