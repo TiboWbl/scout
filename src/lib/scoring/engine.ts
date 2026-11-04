@@ -19,6 +19,12 @@ export function forStarter(row: Record<string, unknown>, o: { years: number | nu
   }
   return row.level === "coeur" ? { ...row, level: "solide" } : row;
 }
+// The level the card shows ("Niveau confirmé (estimé)") is the offer's estimate, kept from its first
+// reading: the sort uses the same one, so a card never says "confirmé" on a crush a later reading
+// thought junior.
+export function sameEstimate(judged: Judgement, kept: string | null | undefined): Judgement {
+  return kept === "junior" || kept === "confirme" || kept === "senior" ? { ...judged, seniority: kept } : judged;
+}
 export const juniorSignal = (title: string, experienceLevel: string | null | undefined) => experienceLevel === "junior" || JUNIOR_TITLE.test(title);
 
 export const ENGLISH_REASON = "Annonce en anglais : le poste se passe sans doute en anglais, et tu préfères travailler en français.";
@@ -145,6 +151,21 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
       unscored.push(...((data ?? []) as unknown as LightOffer[]));
     }
   }
+  // Starting out: crushes and solid offers already sorted follow the offer's kept estimate too (a later
+  // reading may have thought the missions junior). Rules only, no model call.
+  if (experienceYears !== null && experienceYears <= STARTER_YEARS) {
+    const { data: top } = await db
+      .from("offer_scores")
+      .select("offer_id, level, watch, offer:offers!inner(title, experience_min_years, experience_level, seniority_estimate)")
+      .eq("user_id", userId)
+      .eq("criteria_version", version)
+      .in("level", ["coeur", "solide"]);
+    for (const r of top ?? []) {
+      const o = r.offer as unknown as { title: string; experience_min_years: number | null; experience_level: string | null; seniority_estimate: string | null };
+      const next = forStarter({ level: r.level, watch: r.watch }, { years: experienceYears, stated: o.experience_min_years, juniorSignal: juniorSignal(o.title, o.experience_level), seniority: o.seniority_estimate });
+      if (next.level !== r.level) await db.from("offer_scores").update({ level: next.level, watch: next.watch }).eq("user_id", userId).eq("criteria_version", version).eq("offer_id", r.offer_id);
+    }
+  }
   const { count: stock } = await db.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null);
   const total = stock ?? unscored.length;
   // All sorted: the rows of older versions are no longer needed.
@@ -230,9 +251,9 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const toLoad = candidates.slice(0, maxBatches * BATCH_SIZE).map((c) => c.offer.id);
   // Read the full posting behind search-engine excerpts first: judging 500 characters misleads.
   if (service) await completeOffers(service, toLoad);
-  const fresh = new Map<string, { description: string | null; experience_min_years: number | null; experience_level: LightOffer["experience_level"]; contract: string; archived_at: string | null; sources: string[] }>();
+  const fresh = new Map<string, { description: string | null; experience_min_years: number | null; experience_level: LightOffer["experience_level"]; contract: string; archived_at: string | null; sources: string[]; seniority_estimate: string | null }>();
   for (let i = 0; i < toLoad.length; i += 100) {
-    const { data } = await db.from("offers").select("id, description, experience_min_years, experience_level, contract, archived_at, sources").in("id", toLoad.slice(i, i + 100));
+    const { data } = await db.from("offers").select("id, description, experience_min_years, experience_level, contract, archived_at, sources, seniority_estimate").in("id", toLoad.slice(i, i + 100));
     for (const d of data ?? []) fresh.set(d.id, d);
   }
   const spoken = [...criteria.languages, ...(cv?.languages ?? [])];
@@ -322,7 +343,7 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
         const rows = batch
           .filter(({ offer }) => results.has(offer.id))
           .map(({ offer, outOfZone, gap }) => {
-            const judged = results.get(offer.id)!;
+            const judged = sameEstimate(results.get(offer.id)!, fresh.get(offer.id)?.seniority_estimate);
             const row = forStarter(withEnglish(scoreRow({ ...base, judge_key: judgeKey }, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, service, offer.contract, criteria.contracts, offer.company_id), inEnglish.has(offer.id)), {
               years: experienceYears,
               stated: offer.experience_min_years ?? judged.experience_years,
@@ -442,7 +463,7 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
 
   const { data: offers } = await db
     .from("offers")
-    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, description, company_id, company:companies(name)")
+    .select("id, title, location_raw, places, remote, remote_scope, contract, experience_min_years, experience_level, description, seniority_estimate, company_id, company:companies(name)")
     .in("id", offerIds);
   const rows: Record<string, unknown>[] = [];
   const toJudge: { offer: LightOffer & { description: string | null }; outOfZone: boolean; gap: number }[] = [];
@@ -480,7 +501,8 @@ export async function scoreOffersNow(db: SupabaseClient, userId: string, offerId
       await loadFeedback(db, userId),
     );
     for (const { offer, outOfZone, gap } of toJudge) {
-      const judged = results.get(offer.id);
+      const read = results.get(offer.id);
+      const judged = read && sameEstimate(read, (offer as { seniority_estimate?: string | null }).seniority_estimate);
       if (judged)
         rows.push(
           forStarter(withEnglish(scoreRow(base, offer.id, outOfZone, gap, judged, experienceYears, offer.experience_min_years, null, offer.contract, criteria.contracts), criteria.englishWork === "un_peu" && isEnglishPosting(offer.description ?? "")), {

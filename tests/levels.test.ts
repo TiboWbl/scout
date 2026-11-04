@@ -108,3 +108,13 @@ describe("pré-tri par intitulé : abréviations", async () => {
     expect(titleRelevance("Comptable fournisseurs", qa)).toBe(0);
   });
 });
+
+describe("estimation de niveau gardée sur l'offre", () => {
+  it("le tri suit l'estimation que la carte affiche", async () => {
+    const { sameEstimate, forStarter } = await import("@/lib/scoring/engine");
+    const judged = sameEstimate({ seniority: "junior" } as never, "confirme");
+    expect(judged.seniority).toBe("confirme");
+    expect(forStarter({ level: "coeur" }, { years: 1, stated: null, juniorSignal: false, seniority: judged.seniority }).level).toBe("tremplin");
+    expect(sameEstimate({ seniority: "junior" } as never, null).seniority).toBe("junior");
+  });
+});
