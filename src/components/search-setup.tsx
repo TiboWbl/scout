@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { hasMinimumCriteria, type Criteria, type CvSummary } from "@/lib/domain/criteria";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
+import { CareerExplorer } from "@/components/career-explorer";
 import { CriteriaEditor } from "./criteria-editor";
 import { AutoTextarea } from "./auto-textarea";
 import { addFavorites, parseEntries } from "./favorites";
@@ -209,6 +210,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
             {shownCv && cvName && <CvDigest cv={shownCv} title="Ce que Scout a retenu de ton CV" />}
           </div>
           <CriteriaEditor value={criteria} onChange={setCriteria} />
+          <CareerExplorer criteria={criteria} onChange={setCriteria} />
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={save} disabled={!ready || busy !== null} className="rounded-xl bg-button px-6 py-3 text-[15px] font-semibold text-button-ink disabled:opacity-40">
               {busy === "save" ? "Enregistrement…" : mode === "onboarding" ? "C'est parti" : "Enregistrer"}

@@ -8,7 +8,7 @@ La spécification complète, source de vérité produit et technique, est dans [
 
 ## Ce que fait Scout
 
-- **Inscription en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables (métier, intitulés équivalents FR/EN, passerelles, zone, contrats, expérience). Connexion Google ou code par email. Le nom et les coordonnées sont retirés du CV avant tout envoi à l'IA.
+- **Inscription en langage naturel** : quelques phrases, et un CV en option, deviennent des critères modifiables (métier, intitulés équivalents FR/EN, passerelles, zone, contrats, expérience). « Explorer d'autres métiers » propose des métiers voisins à partir de ce qu'on aime, avec le nombre d'offres ouvertes aux débutants. Connexion Google ou code par email. Le nom et les coordonnées sont retirés du CV avant tout envoi à l'IA.
 - **Collecte légale et large** : API et flux publics de 12 ATS (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor, Personio, Polymer, DigitalRecruiters, Welcome Kit, Workday), sites carrière propres (fiche schema.org `JobPosting`, ou la page elle-même, et les listes plus fines du plan du site quand la liste principale est coupée), moteurs Adzuna et Jooble. Les extraits des moteurs sont complétés par l'annonce entière, revérifiés tous les 3 jours (offres fermées archivées), et fusionnés avec la page de l'employeur quand c'est la même annonce.
 - **Tri fiable, en deux temps** :
   1. des **portes** déterministes : zone, contrat, expérience (années ou mots : « profil junior », « expérience significative »), intitulé proche du métier ; les formations ne sont pas des offres ;
