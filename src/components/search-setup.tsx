@@ -210,7 +210,7 @@ export function SearchSetup({ mode, initialText = "", initialCriteria = null, in
             {shownCv && cvName && <CvDigest cv={shownCv} title="Ce que Scout a retenu de ton CV" />}
           </div>
           <CriteriaEditor value={criteria} onChange={setCriteria} />
-          <CareerExplorer criteria={criteria} onChange={setCriteria} />
+          <CareerExplorer criteria={criteria} onAdd={(title, as) => setCriteria({ ...criteria, [as]: [...criteria[as], title] })} />
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={save} disabled={!ready || busy !== null} className="rounded-xl bg-button px-6 py-3 text-[15px] font-semibold text-button-ink disabled:opacity-40">
               {busy === "save" ? "Enregistrement…" : mode === "onboarding" ? "C'est parti" : "Enregistrer"}

@@ -18,6 +18,10 @@ export const skillLabel = (name: string) => (/^[a-zà-ÿ]/.test(name) && !/[A-Z]
 
 // A skill is found in a text normalised this way, between spaces.
 export const skillText = (d: string) => ` ${key(d)} `;
+// The same, accents kept: "Reels" (Instagram) is not "réels", "Gamme" is not "gammé". A skill only ever
+// written without accents is looked for this way, so a French word that loses its accents is not it.
+const ACCENTED = /[à-ÿœæ]/i;
+const keyAccents = (s: string) => s.toLowerCase().normalize("NFC").replace(/[^a-z0-9+#à-ÿœæ]+/g, " ").trim().split(" ").map((w) => (w.length > 3 ? w.replace(/s$/, "") : w)).join(" ");
 
 // A more precise skill that says the general one, as a recruiter reads it: MySQL is SQL, Scrum is
 // Agile. The other way round never holds (SQL does not say MySQL).
@@ -152,12 +156,17 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
   }
   const texts = descriptions.map((d) => ` ${key(d)} `);
   const split = parts.map((p) => ({ required: ` ${key(p.required)} `, bonus: ` ${key(p.bonus)} ` }));
+  const textsAccents = descriptions.map((d) => ` ${keyAccents(d)} `);
+  const splitAccents = parts.map((p) => ({ required: ` ${keyAccents(p.required)} `, bonus: ` ${keyAccents(p.bonus)} ` }));
   const cv = ` ${key(cvText)} `;
   const fromCv = new Set(cvSkills.map((n) => ALIASES[key(n)] ?? key(n)));
   const byKind: Record<Skill["kind"], SkillStat[]> = { outil: [], methode: [], savoir_etre: [], langue: [] };
   for (const [k, g] of groups) {
     const forms = spellings(k);
-    const citing = texts.map((t, i) => (forms.some((f) => t.includes(` ${f} `)) ? i : -1)).filter((i) => i >= 0);
+    const plain = [...g.names.keys()].every((n) => !ACCENTED.test(n));
+    const read = plain ? textsAccents : texts;
+    const parted = plain ? splitAccents : split;
+    const citing = read.map((t, i) => (forms.some((f) => t.includes(` ${f} `)) ? i : -1)).filter((i) => i >= 0);
     const count = citing.length;
     if (count < 2) continue;
     // A common word ("recrutement" in "processus de recrutement") is everywhere but rarely what the offer
@@ -168,7 +177,7 @@ export function skillDemand(descriptions: string[], vocabulary: Skill[], cvText:
     const name = DISPLAY[k] ?? [...g.names.entries()].filter(([n]) => (ALIASES[key(n)] ?? key(n)) === k).sort((a, b) => b[1] - a[1])[0]?.[0] ?? [...g.names.keys()][0];
     // Cited only in the "a plus" part of the offer: wanted, not required.
     const has = (t: string | undefined) => forms.some((f) => (t ?? "").includes(` ${f} `));
-    const bonus = split.length ? citing.filter((i) => has(split[i]?.bonus) && !has(split[i]?.required)).length : 0;
+    const bonus = parted.length ? citing.filter((i) => has(parted[i]?.bonus) && !has(parted[i]?.required)).length : 0;
     byKind[kind].push({ name, kind, key: k, count, bonus, share: Math.round((100 * count) / Math.max(1, texts.length)), inCv: fromCv.has(k) || spellings(k).some((f) => cv.includes(` ${f} `)) });
   }
   for (const kind of Object.keys(byKind) as Skill["kind"][]) byKind[kind] = byKind[kind].sort((a, b) => b.count - a.count).slice(0, perKind);

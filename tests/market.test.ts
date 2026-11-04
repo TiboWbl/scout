@@ -246,3 +246,13 @@ describe("CV : chiffres et lignes à réécrire", async () => {
     expect(suggestions.map((s) => s.proposition)).toEqual(["Priorisé le backlog de 3 équipes, livraisons [chiffre] % plus rapides"]);
   });
 });
+
+describe("compétences et accents", () => {
+  it("« Reels » n'est pas « réels »", async () => {
+    const { skillDemand } = await import("@/lib/views/skills");
+    const vocab = Array.from({ length: 20 }, () => ({ name: "Reels", kind: "outil" as const }));
+    const texts = ["Analyser des cas réels.", "Données réelles et temps réel.", "Des projets réels.", "Créer des Reels Instagram.", "Montage de Reels et de stories."];
+    const { byKind } = skillDemand(texts, vocab, "");
+    expect(byKind.outil.find((s) => s.key === "reel")?.count).toBe(2);
+  });
+});

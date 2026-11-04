@@ -32,7 +32,7 @@ export function withEnglish(row: Record<string, unknown>, english: boolean): Rec
 export const languageReason = (l: { language: string; quote: string }) => `L'offre demande de parler ${l.language} : « ${l.quote} ». Si tu le parles, ajoute-le à ta recherche.`;
 const TITLE_REASON = "L'intitulé ne correspond à aucun de tes métiers ni de tes passerelles.";
 // When the title rule last changed: exclusions by title given before are read again.
-const TITLE_RULES_AT = "2026-11-04T18:00:00Z";
+const TITLE_RULES_AT = "2026-11-04T17:49:00Z";
 export const INVENTED_REASON = "L'intitulé ressemble à ton métier, mais l'offre décrit un autre métier.";
 export const EXCERPT_REASON = "Annonce incomplète : Scout n'a pu en lire qu'un extrait, il ne juge pas une offre sans l'avoir lue en entier.";
 import { MIN_INTERVAL_MS } from "@/lib/llm";

@@ -5,6 +5,7 @@ import type { SessionUser } from "@/lib/supabase/server";
 const ITEMS = [
   { href: "/offres", label: "Offres" },
   { href: "/marche", label: "Mon marché" },
+  { href: "/metiers", label: "Métiers" },
   { href: "/entreprises", label: "Entreprises" },
   { href: "/suivi", label: "Suivi" },
   { href: "/cv", label: "Mon CV" },

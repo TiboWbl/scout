@@ -21,6 +21,8 @@ export async function POST(request: Request) {
   const cv = profile?.cv_summary ? (CvSummary.safeParse(profile.cv_summary).data ?? null) : null;
   try {
     const ideas = await exploreCareers(auth.supabase, getLlm(), { text: body.data.text, criteria, cv });
+    // Kept for the "Métiers" page, which shows the last exploration again.
+    await auth.supabase.from("profiles").update({ career_text: body.data.text, career_ideas: ideas, career_at: new Date().toISOString() }).eq("id", auth.user.id);
     return NextResponse.json({ ideas });
   } catch (error) {
     if (error instanceof LlmUnavailableError) return NextResponse.json({ error: LLM_UNAVAILABLE_MESSAGE }, { status: 503 });

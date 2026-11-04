@@ -26,7 +26,9 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
   const { today: m, trend, since, insights, cvKnown } = page;
   // What "your market" covers: the role and the titles counted as the same job.
   const { data: profile } = await db.from("profiles").select("criteria").eq("id", userId).single();
-  const variants = (Criteria.safeParse(profile?.criteria).data?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
+  const sought = Criteria.safeParse(profile?.criteria).data;
+  const variants = (sought?.titleVariants ?? []).filter((v) => v.toLowerCase() !== m.role.toLowerCase()).slice(0, 4);
+  const others = (sought?.targetRoles ?? []).slice(1);
   const demoCard = base ? ((await db.from("market_cards").select("id").eq("profile_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.id as string | undefined) : undefined;
   return (
     <div className="px-1 pb-16 pt-3 md:px-2">
@@ -38,9 +40,19 @@ export async function MarketView({ db, userId, base = "" }: { db: SupabaseClient
             {variants.length > 0 ? ` et des intitulés équivalents (${variants.join(", ")})` : ""} en France, tous niveaux et contrats confondus :{" "}
             <span className="font-semibold text-ink">{m.total.toLocaleString("fr-FR")} en ligne</span>, dont {m.newThisWeek} publiées cette semaine.
           </p>
+          {others.length > 0 && <p className="mt-1 max-w-[68ch] text-[14px] text-muted">Tes autres métiers visés ({others.join(", ")}) ont leurs propres compétences : ils ne sont pas comptés ici.</p>}
           {m.total < SMALL_MARKET && (
             <p className="mt-2 max-w-3xl rounded-xl bg-pill-solid px-3.5 py-2.5 text-[14px]">
               Un petit marché : chaque offre pèse {Math.max(1, Math.round(100 / Math.max(1, m.total)))} % ou plus. Les tendances fortes sont fiables, les petits écarts beaucoup moins : le nombre d&apos;offres est indiqué à côté de chaque part.
+            </p>
+          )}
+          {m.total > 0 && m.experience.juniorLabeled / m.total < 0.15 && (
+            <p className="mt-2 max-w-3xl text-[14px] text-muted">
+              Peu de ces offres s&apos;adressent aux débutants ({m.experience.juniorLabeled} sur {m.total}). Un métier voisin en recrute peut-être davantage :{" "}
+              <Link href={`${base}/metiers`} className="font-medium text-ink underline underline-offset-2">
+                trouver ton métier
+              </Link>
+              .
             </p>
           )}
         </div>

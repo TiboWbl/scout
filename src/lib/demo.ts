@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Criteria } from "@/lib/domain/criteria";
+import { Criteria, CvSummary } from "@/lib/domain/criteria";
 
 // Public demo: Camille, a fictional junior PM in Paris. Her profile is scored by the scheduled job on
 // the real offers, like anyone's; visitors only read. Nothing here is about a real person.
@@ -22,6 +22,7 @@ export const DEMO_CRITERIA = Criteria.parse({
   openness: 60,
 });
 
+const DEMO_CAREER_TEXT = "J'aime parler aux utilisateurs, comprendre ce qui les bloque et trouver avec l'équipe la solution la plus simple. Les chiffres m'aident à décider. Je veux devenir Product Manager dans la santé ou l'éducation.";
 const DEMO_SEARCH = "Je cherche un premier CDI de Product Manager à Paris, idéalement dans la santé, la mobilité ou l'éducation. J'ai un an d'expérience en stage de Product Owner.";
 const DEMO_CV = {
   experienceYears: 1,
@@ -201,6 +202,16 @@ export async function seedDemoExtras(db: SupabaseClient, userId: string) {
     const m = snap.data as { mine: number; skills: Record<string, unknown>[] };
     await db.from("market_cards").insert({ profile_id: userId, data: { ...m, mine: 0, skills: m.skills.map((x) => ({ ...x, inCv: false, mine: 0 })) } });
     done.push("carte du marché");
+  }
+  // "Métiers": Camille's exploration, as she would write it, counted again each day.
+  const { data: careers } = await db.from("profiles").select("criteria, cv_summary, career_at").eq("id", userId).single();
+  if (!careers?.career_at || Date.now() - Date.parse(careers.career_at) > 20 * 3600_000) {
+    const { exploreCareers } = await import("@/lib/careers");
+    const ideas = await exploreCareers(db, llm, { text: DEMO_CAREER_TEXT, criteria: Criteria.parse(careers?.criteria ?? {}), cv: careers?.cv_summary ? (CvSummary.safeParse(careers.cv_summary).data ?? null) : null }).catch(() => null);
+    if (ideas?.length) {
+      await db.from("profiles").update({ career_text: DEMO_CAREER_TEXT, career_ideas: ideas, career_at: new Date().toISOString() }).eq("id", userId);
+      done.push("métiers");
+    }
   }
   return done;
 }

@@ -132,7 +132,9 @@ export async function computeMarket(
 ): Promise<MarketData> {
   const t = at.getTime();
   const ENGINE_ONLY = (r: Row) => r.sources.every((x) => ["adzuna", "jooble", "careerjet", "france-travail"].includes(x));
-  const roleOnly = { ...criteria, bridgeRoles: [] };
+  // The market of one job: the first role sought and the titles that say the same job. Another role sought
+  // (a Business Analyst beside a Product Manager) has its own offers and skills, never mixed in.
+  const roleOnly = { ...criteria, targetRoles: criteria.targetRoles.slice(0, 1), bridgeRoles: [] };
   const relevance = new Map<string, number>();
   const isRole = (title: string) => {
     if (!relevance.has(title)) relevance.set(title, titleRelevance(title, roleOnly));
