@@ -1,29 +1,31 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { CloseIcon } from "@/components/icons";
 
 // "Ma recherche" opens over the Offres page (the sidebar stays), like an offer but wider: it is opened
 // by "?recherche=1", so the browser's back button closes it and saving (which returns to Offres) too.
+// Its content is rendered with the page: opening and closing only change the address in the browser
+// (no round trip to the server), so the panel answers at once, never a button that seems dead.
+const goTo = (url: string) => window.history.pushState(null, "", url);
 export function SearchPanel({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const open = params.get("recherche") === "1";
-  const close = () => router.push(pathname, { scroll: false });
+  const close = () => goTo(pathname);
 
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && router.push(pathname, { scroll: false });
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && goTo(pathname);
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, pathname, router]);
+  }, [open, pathname]);
 
   if (!open) return null;
   return (
@@ -43,10 +45,9 @@ export function SearchPanel({ children }: { children: React.ReactNode }) {
 
 // The button of the Offres page that opens it.
 export function EditSearchButton({ label = "Modifier ma recherche", className = "" }: { label?: string; className?: string }) {
-  const router = useRouter();
   const pathname = usePathname();
   return (
-    <button type="button" onClick={() => router.push(`${pathname}?recherche=1`, { scroll: false })} className={`btn-soft ${className}`}>
+    <button type="button" onClick={() => goTo(`${pathname}?recherche=1`)} className={`btn-soft ${className}`}>
       {label}
     </button>
   );

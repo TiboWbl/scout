@@ -9,7 +9,7 @@ import { resolveCompany } from "./resolve";
 // names and sites; each is checked like a favourite and enters the directory only with a real career page
 // that lists offers in France. A made-up or unreadable company leaves no trace.
 
-const SYSTEM = `Tu connais bien le marché de l'emploi en France. Pour un secteur donné, liste des entreprises qui recrutent en France dans ce secteur, avec leur site web officiel : marques, distributeurs, start-ups et scale-ups, éditeurs d'applications, médias, clubs et organisations, selon le secteur. Uniquement des entreprises réelles et actives dont tu es sûr ; si tu doutes d'une entreprise ou de son site, ne la mets pas. Réponds uniquement avec {"entreprises": [{"nom": "...", "site": "exemple.com"}]}.`;
+const SYSTEM = `Tu connais bien le marché de l'emploi en France. Pour un secteur donné, liste des entreprises dont c'est le cœur de métier (pas un client ni un fournisseur du secteur) et qui recrutent en France, avec leur site web officiel : marques, distributeurs, start-ups et scale-ups, éditeurs d'applications, médias, clubs et organisations, selon le secteur. Uniquement des entreprises réelles et actives dont tu es sûr ; si tu doutes d'une entreprise ou de son site, ne la mets pas. Le nom seul, tel que l'entreprise l'écrit, sans parenthèses ni liste de marques. Réponds uniquement avec {"entreprises": [{"nom": "...", "site": "exemple.com"}]}.`;
 
 export type SectorReport = { sector: string; proposed: number; added: number; offers: number };
 
@@ -34,10 +34,13 @@ export async function discoverSector(db: SupabaseClient, llm: LlmProvider, secto
     for (const e of Array.isArray(read?.entreprises) ? read!.entreprises : []) {
       const x = e as { nom?: unknown; site?: unknown };
       if (typeof x.nom !== "string" || !x.nom.trim()) continue;
-      const key = companyKey(x.nom);
+      // The company's name only, as offers write it: "Groupe Lagardère (Paris Match, JDD)" → "Groupe Lagardère".
+      const nom = x.nom.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+      if (!nom || nom.length > 60) continue;
+      const key = companyKey(nom);
       if (seen.has(key) || have.has(key)) continue;
       seen.add(key);
-      proposals.push({ nom: x.nom.trim(), site: typeof x.site === "string" ? x.site.trim() : "" });
+      proposals.push({ nom, site: typeof x.site === "string" ? x.site.trim() : "" });
     }
   }
   let added = 0;

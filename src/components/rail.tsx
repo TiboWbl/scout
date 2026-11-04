@@ -1,10 +1,16 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccountMenu } from "./account-menu";
 import { sortingPercent, useSortingProgress } from "./sorting-progress";
+
+// Shown inside a menu link from the click until the page arrives: a click never looks ignored.
+function Pending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current/25 border-t-current" /> : null;
+}
 
 // `badge`: something waiting there (a follow-up to send, an interview coming).
 type Item = { href: string; label: string; badge?: number };
@@ -82,6 +88,7 @@ export function Rail({ items, firstName, avatarUrl, isAdmin, home = "/", footer 
               className={`flex items-center whitespace-nowrap rounded-[14px] px-3.5 py-2.5 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50 ${active ? "bg-rail-active font-semibold text-rail-active-ink" : "font-medium text-rail-ink hover:bg-pill-solid hover:text-rail-text"}`}
             >
               {item.label}
+              <Pending />
               {item.badge ? (
                 <span className="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full bg-peach-soft px-1.5 text-[11.5px] font-semibold text-peach-ink" aria-label={`${item.badge} à faire`}>
                   {item.badge}
