@@ -131,66 +131,58 @@ await png(squareIcon(512, dark), "public/brand/scout-s-512.png");
 await png(squareIcon(512, { bg: null, ink: INK, dot: VIOLET }), "public/brand/scout-s-512-black-transparent.png");
 await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "public/brand/scout-s-512-white-transparent.png");
 
-// Share image (1200×630, drawn at twice the size so it stays sharp), used when the link is sent to someone.
-// Left, what Scout is; right, what it shows: an offer explained, and a market counted (shares from the
-// demo's Product Manager market, as the page shows them).
+// Share image (1200×630, LinkedIn's size: a larger one is shrunk and blurred), used when the link is sent.
+// Seen as a thumbnail about 500 px wide: few words, large type. Left, what Scout is; right, what it shows:
+// an offer explained, and a market counted (shares from the demo's Product Manager market).
 {
   const W = 1200;
   const H = 630;
   const MUTED = "#544f60";
-  const LINE = "#e7e3ee";
+  const LINE = "#e4e0ec";
   const t = (f: opentype.Font, text: string, x: number, y: number, size: number, fill: string) => `<path transform="translate(${x} ${y})" d="${pathData(textPath(f, text, 0, 0, size))}" fill="${fill}"/>`;
   const width = (f: opentype.Font, text: string, size: number) => textPath(f, text, 0, 0, size).getBoundingBox().x2;
-  const x = 80;
+  const x = 76;
   const left =
-    placed(mark("Scout", 132), x - 4, 92, INK, VIOLET) +
-    t(strong, "Les offres lues", x, 330, 50, INK) +
-    t(strong, "à la source.", x, 390, 50, INK) +
-    t(body, "Sites carrière et API publiques,", x, 456, 25, MUTED) +
-    t(body, "triées et expliquées pour toi.", x, 492, 25, MUTED) +
-    t(body, "Et ce que ton marché demande,", x, 540, 25, MUTED) +
-    t(body, "compté offre par offre.", x, 576, 25, MUTED);
+    placed(mark("Scout", 128), x - 4, 110, INK, VIOLET) +
+    t(strong, "Les offres lues", x, 356, 58, INK) +
+    t(strong, "à la source.", x, 424, 58, INK) +
+    t(body, "Triées et expliquées pour toi.", x, 500, 30, MUTED);
   const cx = 640;
   const cw = 490;
-  // An offer, as Scout shows it.
   const pill = "Coup de cœur";
-  const pw = width(body, pill, 16) + 28;
+  const pw = width(body, pill, 21) + 32;
   const offer =
-    `<rect x="${cx}" y="70" width="${cw}" height="214" rx="24" fill="#ffffff" stroke="${LINE}" stroke-width="1.5"/>` +
-    t(strong, "Product Manager", cx + 28, 128, 25, INK) +
-    t(body, "CDI · Paris · Hybride", cx + 28, 156, 17, MUTED) +
-    `<rect x="${cx + cw - 28 - pw}" y="102" width="${pw}" height="32" rx="16" fill="#fde8dc"/>` +
-    t(body, pill, cx + cw - 14 - pw, 124, 16, "#a8481f") +
-    t(strong, "Pour toi :", cx + 28, 210, 18, VIOLET) +
-    t(body, "discovery et données, le cœur", cx + 28 + width(strong, "Pour toi :", 18) + 7, 210, 18, INK) +
-    t(body, "de ton expérience, dans un secteur que tu vises.", cx + 28, 240, 18, INK);
-  // A market, counted.
+    `<rect x="${cx}" y="76" width="${cw}" height="200" rx="26" fill="#ffffff" stroke="${LINE}" stroke-width="2"/>` +
+    t(strong, "Product Manager", cx + 32, 136, 31, INK) +
+    `<rect x="${cx + 32}" y="160" width="${pw}" height="38" rx="19" fill="#fde8dc"/>` +
+    t(body, pill, cx + 48, 186, 21, "#a8481f") +
+    t(strong, "Pour toi :", cx + 32, 246, 24, VIOLET) +
+    t(body, "ton expérience discovery", cx + 32 + width(strong, "Pour toi :", 24) + 9, 246, 24, INK);
   const skills: [string, number][] = [["IA", 59], ["API", 21], ["SaaS", 18]];
-  const barX = cx + 120;
-  const barW = cw - 120 - 90;
+  const barX = cx + 110;
+  const barW = cw - 110 - 110;
   const rows = skills
     .map(([name, share], k) => {
-      const y = 404 + k * 44;
+      const y = 392 + k * 52;
       return (
-        t(body, name, cx + 28, y + 6, 18, INK) +
-        `<rect x="${barX}" y="${y - 9}" width="${barW}" height="12" rx="6" fill="#efecf7"/>` +
-        `<rect x="${barX}" y="${y - 9}" width="${(barW * share) / 100}" height="12" rx="6" fill="${VIOLET}"/>` +
-        t(strong, `${share} %`, barX + barW + 18, y + 6, 18, INK)
+        t(body, name, cx + 32, y + 9, 25, INK) +
+        `<rect x="${barX}" y="${y - 8}" width="${barW}" height="16" rx="8" fill="#ece8f7"/>` +
+        `<rect x="${barX}" y="${y - 8}" width="${(barW * share) / 100}" height="16" rx="8" fill="${VIOLET}"/>` +
+        t(strong, `${share} %`, barX + barW + 20, y + 9, 25, INK)
       );
     })
     .join("");
   const market =
-    `<rect x="${cx}" y="310" width="${cw}" height="250" rx="24" fill="#ffffff" stroke="${LINE}" stroke-width="1.5"/>` +
-    t(strong, "Ce que ton marché demande", cx + 28, 356, 21, INK) +
-    rows +
-    t(body, "Part des offres de Product Manager qui la citent", cx + 28, 532, 15, MUTED);
+    `<rect x="${cx}" y="300" width="${cw}" height="254" rx="26" fill="#ffffff" stroke="${LINE}" stroke-width="2"/>` +
+    t(strong, "Ton marché, compté", cx + 32, 350, 27, INK) +
+    rows;
   const inner =
     `<rect width="${W}" height="${H}" fill="${PAPER}"/>` +
     `<rect x="${W - 300}" y="-160" width="460" height="460" rx="130" fill="${VIOLET}" opacity="0.08"/>` +
     left +
     offer +
     market;
-  await png(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * 2}" height="${H * 2}">${inner}</svg>`, "src/app/opengraph-image.png");
+  await sharp(Buffer.from(svg(W, H, inner)), { density: 144 }).resize(W, H).flatten({ background: PAPER }).png({ compressionLevel: 9 }).toFile("src/app/opengraph-image.png");
   writeFileSync("src/app/opengraph-image.alt.txt", "Scout : les offres lues à la source, sur les sites carrière et les API publiques, triées et expliquées, avec ce que ton marché demande, compté offre par offre.");
 }
 
