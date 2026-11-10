@@ -131,12 +131,12 @@ await png(squareIcon(512, dark), "public/brand/scout-s-512.png");
 await png(squareIcon(512, { bg: null, ink: INK, dot: VIOLET }), "public/brand/scout-s-512-black-transparent.png");
 await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "public/brand/scout-s-512-white-transparent.png");
 
-// Share image (1200×630, LinkedIn's size: a larger one is shrunk and blurred), used when the link is sent.
+// Share image (1200×627, LinkedIn's recommended size: a larger one is shrunk and blurred), used when the link is sent.
 // Seen as a thumbnail about 500 px wide: few words, large type. Left, what Scout is; right, what it shows:
 // an offer explained, and a market counted (shares from the demo's Product Manager market).
 {
   const W = 1200;
-  const H = 630;
+  const H = 627;
   const MUTED = "#544f60";
   const LINE = "#e4e0ec";
   const t = (f: opentype.Font, text: string, x: number, y: number, size: number, fill: string) => `<path transform="translate(${x} ${y})" d="${pathData(textPath(f, text, 0, 0, size))}" fill="${fill}"/>`;
