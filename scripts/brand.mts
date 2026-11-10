@@ -130,22 +130,25 @@ await png(squareIcon(512, dark), "public/brand/scout-s-512.png");
 await png(squareIcon(512, { bg: null, ink: INK, dot: VIOLET }), "public/brand/scout-s-512-black-transparent.png");
 await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "public/brand/scout-s-512-white-transparent.png");
 
-// Share image (1200×630), used when the link is sent to someone.
+// Share image (1200×630, drawn at twice the size so it stays sharp), used when the link is sent to someone.
 {
   const W = 1200;
   const H = 630;
-  const big = mark("Scout", 230);
-  const line1 = textPath(body, "Les offres que les plateformes ratent.", 0, 0, 40);
-  const line2 = textPath(body, "Expliquées pour toi, avec ce que ton marché demande vraiment.", 0, 0, 30);
+  const big = mark("Scout", 200);
+  const line1 = textPath(body, "Les offres lues à la source.", 0, 0, 44);
+  const line2 = textPath(body, "Sites carrière et API publiques, triées et expliquées pour toi.", 0, 0, 28);
+  const line3 = textPath(body, "Et ce que ton marché demande vraiment, compté offre par offre.", 0, 0, 28);
   const x = 96;
   const inner =
     `<rect width="${W}" height="${H}" fill="${PAPER}"/>` +
     `<rect x="${W - 260}" y="-120" width="420" height="420" rx="120" fill="${VIOLET}" opacity="0.10"/>` +
-    placed(big, x, 120, INK, VIOLET) +
-    `<g transform="translate(${x + 6} 470)"><path d="${pathData(line1)}" fill="${INK}"/></g>` +
-    `<g transform="translate(${x + 6} 530)"><path d="${pathData(line2)}" fill="#544f60"/></g>`;
-  await png(svg(W, H, inner), "src/app/opengraph-image.png");
-  writeFileSync("src/app/opengraph-image.alt.txt", "Scout : les offres que les plateformes ratent, expliquées pour toi, avec ce que ton marché demande vraiment.");
+    placed(big, x, 96, INK, VIOLET) +
+    `<g transform="translate(${x + 6} 418)"><path d="${pathData(line1)}" fill="${INK}"/></g>` +
+    `<g transform="translate(${x + 6} 482)"><path d="${pathData(line2)}" fill="#544f60"/></g>` +
+    `<g transform="translate(${x + 6} 526)"><path d="${pathData(line3)}" fill="#544f60"/></g>`;
+  const sharp2x = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * 2}" height="${H * 2}">${inner}</svg>`;
+  await png(sharp2x, "src/app/opengraph-image.png");
+  writeFileSync("src/app/opengraph-image.alt.txt", "Scout : les offres lues à la source, sur les sites carrière et les API publiques, triées et expliquées, avec ce que ton marché demande vraiment.");
 }
 
 console.log("logo, icônes et image de partage générés");
