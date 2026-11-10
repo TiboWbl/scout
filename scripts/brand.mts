@@ -135,8 +135,8 @@ await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "p
   const W = 1200;
   const H = 630;
   const big = mark("Scout", 230);
-  const line1 = textPath(body, "Toute ta recherche d’emploi dans un seul onglet.", 0, 0, 40);
-  const line2 = textPath(body, "Les offres qui te correspondent, expliquées, et ton suivi.", 0, 0, 30);
+  const line1 = textPath(body, "Les offres que les plateformes ratent.", 0, 0, 40);
+  const line2 = textPath(body, "Expliquées pour toi, avec ce que ton marché demande vraiment.", 0, 0, 30);
   const x = 96;
   const inner =
     `<rect width="${W}" height="${H}" fill="${PAPER}"/>` +
@@ -145,7 +145,7 @@ await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "p
     `<g transform="translate(${x + 6} 470)"><path d="${pathData(line1)}" fill="${INK}"/></g>` +
     `<g transform="translate(${x + 6} 530)"><path d="${pathData(line2)}" fill="#544f60"/></g>`;
   await png(svg(W, H, inner), "src/app/opengraph-image.png");
-  writeFileSync("src/app/opengraph-image.alt.txt", "Scout : toute ta recherche d'emploi dans un seul onglet.");
+  writeFileSync("src/app/opengraph-image.alt.txt", "Scout : les offres que les plateformes ratent, expliquées pour toi, avec ce que ton marché demande vraiment.");
 }
 
 console.log("logo, icônes et image de partage générés");

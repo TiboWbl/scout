@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // Each page names itself: "Offres · Scout".
   // Just the page name in the tab: the icon already says it is Scout.
   title: { default: "Scout", template: "%s" },
-  description: "Toute ta recherche d'emploi dans un seul onglet : les offres qui te correspondent, expliquées, et le suivi de tes candidatures.",
+  description: "Les offres que les plateformes ratent, lues sur les sites des entreprises, triées et expliquées pour toi, avec ce que ton marché demande vraiment.",
   // Google Search Console proof of ownership, needed for the brand verification of the Google sign-in screen.
   ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
 };
