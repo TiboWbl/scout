@@ -21,6 +21,7 @@ async function font(family: string, axes: string): Promise<opentype.Font> {
 const display = await font("Bricolage+Grotesque", "opsz,wght@96,800");
 const body = await font("Inter", "wght@500");
 const strong = await font("Inter", "wght@700");
+const semi = await font("Inter", "wght@600");
 
 type Mark = { d: string; width: number; dot: { cx: number; cy: number; r: number } };
 
@@ -132,12 +133,13 @@ await png(squareIcon(512, { bg: null, ink: INK, dot: VIOLET }), "public/brand/sc
 await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "public/brand/scout-s-512-white-transparent.png");
 
 // Share image (1200×627, LinkedIn's recommended size: a larger one is shrunk and blurred), used when the link is sent.
-// Seen as a thumbnail about 500 px wide: few words, large type. Left, what Scout is; right, what it shows:
+// Seen as a thumbnail about 500 px wide and recompressed by LinkedIn: few words, large type, no thin
+// weight (a 500 weight blurs; 600 holds). Left, what Scout is; right, what it shows:
 // an offer explained, and a market counted (shares from the demo's Product Manager market).
 {
   const W = 1200;
   const H = 627;
-  const MUTED = "#544f60";
+  const MUTED = "#47425a";
   const LINE = "#e4e0ec";
   const t = (f: opentype.Font, text: string, x: number, y: number, size: number, fill: string) => `<path transform="translate(${x} ${y})" d="${pathData(textPath(f, text, 0, 0, size))}" fill="${fill}"/>`;
   const width = (f: opentype.Font, text: string, size: number) => textPath(f, text, 0, 0, size).getBoundingBox().x2;
@@ -146,18 +148,18 @@ await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "p
     placed(mark("Scout", 128), x - 4, 110, INK, VIOLET) +
     t(strong, "Les offres lues", x, 356, 58, INK) +
     t(strong, "à la source.", x, 424, 58, INK) +
-    t(body, "Triées et expliquées pour toi.", x, 500, 30, MUTED);
+    t(semi, "Triées et expliquées pour toi.", x, 500, 30, MUTED);
   const cx = 640;
   const cw = 490;
   const pill = "Coup de cœur";
-  const pw = width(body, pill, 21) + 32;
+  const pw = width(semi, pill, 21) + 32;
   const offer =
     `<rect x="${cx}" y="76" width="${cw}" height="200" rx="26" fill="#ffffff" stroke="${LINE}" stroke-width="2"/>` +
     t(strong, "Product Manager", cx + 32, 136, 31, INK) +
     `<rect x="${cx + 32}" y="160" width="${pw}" height="38" rx="19" fill="#fde8dc"/>` +
-    t(body, pill, cx + 48, 186, 21, "#a8481f") +
+    t(semi, pill, cx + 48, 186, 21, "#a8481f") +
     t(strong, "Pour toi :", cx + 32, 246, 24, VIOLET) +
-    t(body, "ton expérience discovery", cx + 32 + width(strong, "Pour toi :", 24) + 9, 246, 24, INK);
+    t(semi, "ton expérience discovery", cx + 32 + width(strong, "Pour toi :", 24) + 9, 246, 24, INK);
   const skills: [string, number][] = [["IA", 59], ["API", 21], ["SaaS", 18]];
   const barX = cx + 110;
   const barW = cw - 110 - 110;
@@ -165,7 +167,7 @@ await png(squareIcon(512, { bg: null, ink: "#ffffff", dot: VIOLET_ON_DARK }), "p
     .map(([name, share], k) => {
       const y = 392 + k * 52;
       return (
-        t(body, name, cx + 32, y + 9, 25, INK) +
+        t(semi, name, cx + 32, y + 9, 25, INK) +
         `<rect x="${barX}" y="${y - 8}" width="${barW}" height="16" rx="8" fill="#ece8f7"/>` +
         `<rect x="${barX}" y="${y - 8}" width="${(barW * share) / 100}" height="16" rx="8" fill="${VIOLET}"/>` +
         t(strong, `${share} %`, barX + barW + 20, y + 9, 25, INK)
