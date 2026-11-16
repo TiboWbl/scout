@@ -118,3 +118,11 @@ describe("estimation de niveau gardée sur l'offre", () => {
     expect(sameEstimate({ seniority: "junior" } as never, null).seniority).toBe("junior");
   });
 });
+
+describe("critères de la démo", () => {
+  it("les mêmes critères, dans un autre ordre, ne font pas une nouvelle version", async () => {
+    const { sameValue } = await import("@/lib/demo");
+    expect(sameValue({ a: 1, b: { c: [1, 2], d: "x" } }, { b: { d: "x", c: [1, 2] }, a: 1 })).toBe(true);
+    expect(sameValue({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
+  });
+});

@@ -38,13 +38,19 @@ export async function getDemoUserId(db: SupabaseClient): Promise<string | null> 
   return data?.id ?? null;
 }
 
+// Same value, keys in any order.
+const canonical = (v: unknown): unknown => (Array.isArray(v) ? v.map(canonical) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canonical((v as Record<string, unknown>)[k])])) : v);
+export const sameValue = (a: unknown, b: unknown) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+
 // Creates Camille if needed (no password, an address nobody can receive: she can never sign in).
 export async function ensureDemoProfile(db: SupabaseClient): Promise<string> {
   const existing = await getDemoUserId(db);
   if (existing) {
     // Camille's search follows the code: a new version is sorted again by the next pass.
     const { data: p } = await db.from("profiles").select("criteria, criteria_version").eq("id", existing).single();
-    if (JSON.stringify(p?.criteria) !== JSON.stringify(DEMO_CRITERIA)) await db.from("profiles").update({ criteria: DEMO_CRITERIA, criteria_version: (p?.criteria_version ?? 0) + 1 }).eq("id", existing);
+    // Compared field by field, whatever the order the database returns them in: a plain string comparison
+    // saw a change at every run, and each run started a new version and sorted every offer again.
+    if (!sameValue(Criteria.parse(p?.criteria ?? {}), DEMO_CRITERIA)) await db.from("profiles").update({ criteria: DEMO_CRITERIA, criteria_version: (p?.criteria_version ?? 0) + 1 }).eq("id", existing);
     return existing;
   }
   const { data, error } = await db.auth.admin.createUser({ email: DEMO_EMAIL, email_confirm: true, user_metadata: { given_name: "Camille" } });

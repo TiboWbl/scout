@@ -111,6 +111,10 @@ export async function runScoring(db: SupabaseClient, userId: string, budgetMs = 
   const version: number = profile.criteria_version;
   const experienceYears = criteria.experienceYears ?? cv?.experienceYears ?? null;
 
+  // Two versions at most: the current one and the one before, whose judgements a new version reuses. The
+  // older ones go now, not only once a sort is finished: an unfinished sort kept them, version after
+  // version, until the search for what is left to sort ran out of time.
+  if (version > 1) await db.from("offer_scores").delete().eq("user_id", userId).lt("criteria_version", version - 1);
   // Only what is left to sort travels: reading the whole stock at each call cost gigabytes a month.
   type Unsorted = Omit<LightOffer, "company"> & { company_name: string | null };
   const light = (o: Unsorted): LightOffer => ({ ...o, company: { name: o.company_name ?? "" } });
